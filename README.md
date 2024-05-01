@@ -1,5 +1,5 @@
 # openpanel-whmcs-module
-WHMCS module for OpenPanel
+WHMCS module for [OpenPanel](https://openpanel.co)
 
 ## Installation
 
