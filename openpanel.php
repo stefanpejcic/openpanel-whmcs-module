@@ -5,7 +5,7 @@
 # Source: https://github.com/stefanpejcic/openpanel-whmcs-module
 # Author: Stefan Pejcic
 # Created: 01.05.2024
-# Last Modified: 01.05.2024
+# Last Modified: 30.05.2024
 # Company: openpanel.co
 # Copyright (c) openpanel.co
 # 
@@ -115,7 +115,7 @@ function openpanel_CreateAccount($params) {
                 'username' => $params["username"],
                 'password' => $params["password"],
                 'email' => $params["clientsdetails"]["email"],
-                'plan_id' => '1' // Adjust plan_id TO BE NAME IN FUTURE!
+                'plan_name' => $params["configoption1"]
             );
 
             // Prepare cURL request for user creation
@@ -570,7 +570,7 @@ function openpanel_ChangePackage($params) {
 
             // Prepare data for changing plan
             $planData = array(
-                'plan_id' => $params["packageid"]
+                'plan_name' => $params["configoption1"]
             );
 
             // Prepare cURL request for changing plan
