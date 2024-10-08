@@ -32,5 +32,5 @@ How to setup WHMCS and OpenPanel: https://openpanel.com/docs/articles/extensions
 
 ## Bug Reports
 
-Submit [new issue on github](https://github.com/stefanpejcic/openpanel-whmcs-module/issues)
+Report [new issue on github](https://github.com/stefanpejcic/openpanel-whmcs-module/issues/new/choose)
 
