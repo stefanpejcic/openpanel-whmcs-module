@@ -133,13 +133,20 @@ function openpanel_CreateAccount($params) {
 
     $apiProtocol = getApiProtocol($params["serverhostname"]);
     $createUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users';
+    $packageId = $params['pid'];  // Get the Product ID (Package ID)
+    
+    // Query the database to get the package name
+    $result = select_query("tblproducts", "name", array("id" => $packageId));
+    $data = mysql_fetch_array($result);
+    $packageName = $data['name'];  // This is the package name
 
+    
     // Prepare data for user creation
     $userData = array(
         'username' => $params["username"],
         'password' => $params["password"],
         'email' => $params["clientsdetails"]["email"],
-        'plan_name' => $params["configoption1"]
+        'plan_name' => $packageName
     );
 
     // Make API request to create user
@@ -229,8 +236,16 @@ function openpanel_ChangePackage($params) {
     $apiProtocol = getApiProtocol($params["serverhostname"]);
     $changePlanEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
+    $packageId = $params['pid'];  // Get the Product ID (Package ID)
+    
+    // Query the database to get the package name
+    $result = select_query("tblproducts", "name", array("id" => $packageId));
+    $data = mysql_fetch_array($result);
+    $packageName = $data['name'];  // This is the package name
+
+    
     // Prepare data for changing plan
-    $planData = array('plan_name' => $params["configoption1"]);
+    $planData = array('plan_name' => $packageName);
 
     // Make API request to change plan
     return json_encode(apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT'));
