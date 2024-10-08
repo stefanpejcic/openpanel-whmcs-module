@@ -18,7 +18,7 @@ WHMCS module for [OpenPanel](https://openpanel.com)
 
 ## Configuration
 
-
+How to setup WHMCS and OpenPanel: https://openpanel.com/docs/articles/extensions/openpanel-and-whmcs/
 
 
 ## Update
@@ -29,3 +29,8 @@ WHMCS module for [OpenPanel](https://openpanel.com)
    ```bash
    git pull
    ```
+
+## Bug Reports
+
+Submit [new issue on github](https://github.com/stefanpejcic/openpanel-whmcs-module/issues)
+
