@@ -1,4 +1,4 @@
-# openpanel-whmcs-module
+# OpenPanel WHMCS Module 😎
 WHMCS module for [OpenPanel](https://openpanel.com)
 
 
