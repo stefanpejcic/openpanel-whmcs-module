@@ -1,13 +1,13 @@
 <?php
 ################################################################################
 # Name: OpenPanel WHMCS Module
-# Usage: https://openpanel.co/docs/changelog/0.1.7/#whmcs-module
+# Usage: https://openpanel.com/docs/articles/extensions/openpanel-and-whmcs/
 # Source: https://github.com/stefanpejcic/openpanel-whmcs-module
 # Author: Stefan Pejcic
 # Created: 01.05.2024
-# Last Modified: 30.05.2024
-# Company: openpanel.co
-# Copyright (c) openpanel.co
+# Last Modified: 08.10.2024
+# Company: openpanel.com
+# Copyright (c) openpanel.com
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
