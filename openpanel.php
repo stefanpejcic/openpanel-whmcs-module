@@ -151,14 +151,16 @@ function openpanel_CreateAccount($params) {
     
         // Make API request to create user
         $response = apiRequest($createUserEndpoint, $jwtToken, $userData);
-        if (isset($response['success']) && $response['success'] === true) {
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+    
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
             return 'success';
         } else {
-            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
         }
     
     } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
         logModuleCall(
             'provisioningmodule',
             __FUNCTION__,
@@ -171,8 +173,6 @@ function openpanel_CreateAccount($params) {
     }
     
     return 'success';
-
-    
 }
 
 # TERMINATE ACCOUNT
