@@ -226,14 +226,43 @@ function openpanel_ChangePassword($params) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
+
+    try {
+    
     $apiProtocol = getApiProtocol($params["serverhostname"]);
     $changePasswordEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
     // Prepare data for password change
     $passwordData = array('password' => $params["password"]);
 
-    // Make API request to change password
-    return json_encode(apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH'));
+
+        // Make API request to change password for user
+        $response = apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH');
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+
+
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return 'success';
+        } else {
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+        }
+
+    } catch (Exception $e) {
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';
+
+        
 }
 
 
