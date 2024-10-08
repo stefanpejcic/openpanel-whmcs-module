@@ -182,12 +182,39 @@ function openpanel_TerminateAccount($params) {
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
+  
+    try {
+    
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $terminateUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $terminateUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
+        // Make API request to terminate user
+        $response = apiRequest($terminateUserEndpoint, $jwtToken, null, 'DELETE');
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+    
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return 'success';
+        } else {
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+        }
 
-    // Make API request to terminate user
-    return json_encode(apiRequest($terminateUserEndpoint, $jwtToken, null, 'DELETE'));
+
+
+    } catch (Exception $e) {
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';
+
 }
 
 
