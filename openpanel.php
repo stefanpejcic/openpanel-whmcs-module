@@ -287,7 +287,7 @@ function openpanel_AdminLink($params) {
     $adminLoginEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/login';
 
     $code = '<form action="' . $adminLoginEndpoint . '" method="post" target="_blank">
-            <input type="hidden" name="user" value="' . $params["serverusername"] . '" />
+            <input type="hidden" name="username" value="' . $params["serverusername"] . '" />
             <input type="hidden" name="password" value="' . $params["serverpassword"] . '" />
             <input type="submit" value="Login to OpenAdmin" />
             </form>';
