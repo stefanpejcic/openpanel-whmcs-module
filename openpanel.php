@@ -130,27 +130,49 @@ function openpanel_CreateAccount($params) {
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
-
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $createUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users';
-    $packageId = $params['pid'];  // Get the Product ID (Package ID)
     
-    // Query the database to get the package name
-    $result = select_query("tblproducts", "name", array("id" => $packageId));
-    $data = mysql_fetch_array($result);
-    $packageName = $data['name'];  // This is the package name
+    try {
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $createUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users';
+        $packageId = $params['pid'];  // Get the Product ID (Package ID)
+        
+        // Query the database to get the package name
+        $result = select_query("tblproducts", "name", array("id" => $packageId));
+        $data = mysql_fetch_array($result);
+        $packageName = $data['name'];  // This is the package name
+    
+        // Prepare data for user creation
+        $userData = array(
+            'username' => $params["username"],
+            'password' => $params["password"],
+            'email' => $params["clientsdetails"]["email"],
+            'plan_name' => $packageName
+        );
+    
+        // Make API request to create user
+        $response = apiRequest($createUserEndpoint, $jwtToken, $userData);
+        if (isset($response['success']) && $response['success'] === true) {
+            return 'success';
+        } else {
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
+        }
+    
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';
 
     
-    // Prepare data for user creation
-    $userData = array(
-        'username' => $params["username"],
-        'password' => $params["password"],
-        'email' => $params["clientsdetails"]["email"],
-        'plan_name' => $packageName
-    );
-
-    // Make API request to create user
-    return json_encode(apiRequest($createUserEndpoint, $jwtToken, $userData));
 }
 
 # TERMINATE ACCOUNT
