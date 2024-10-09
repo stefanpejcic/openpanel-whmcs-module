@@ -99,6 +99,13 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
             }
             break;
 
+        case 'CONNECT':
+            $options[CURLOPT_CUSTOMREQUEST] = 'CONNECT';
+            if ($data !== null) {
+                $options[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
+            break;
+        
         case 'PATCH':
             $options[CURLOPT_CUSTOMREQUEST] = 'PATCH';
             if ($data !== null) {
@@ -253,41 +260,46 @@ function openpanel_ChangePassword($params) {
     }
 
     try {
-        
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $changePasswordEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-    
+        
         // Prepare data for password change
         $passwordData = array('password' => $params["password"]);
-    
-
+        
         // Make API request to change password for user
         $response = apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH');
+        
         // Decode the JSON response
         $decodedResponse = json_decode($response, true);
 
+        logModuleCall(
+            'openpanel',
+            __FUNCTION__,
+            $params,
+            $response
+        );
 
+        // Checking for errors
         if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
-            return 'success';
+            //return json_encode(array("success" => true, "message" => $decodedResponse['response']['message']));
+            return 'success'; 
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            return json_encode(array("success" => false, "message" => isset($decodedResponse['error']) ? $decodedResponse['error'] : "An unknown error occurred."));
         }
 
     } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
         logModuleCall(
-            'provisioningmodule',
+            'openpanel',
             __FUNCTION__,
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
-        return $e->getMessage();
-    }
-    
-    return 'success';
 
-        
+        return json_encode(array("success" => false, "message" => $e->getMessage()));
+    }
+    return 'success'; 
 }
 
 
