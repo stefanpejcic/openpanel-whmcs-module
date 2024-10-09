@@ -5,7 +5,7 @@
 # Source: https://github.com/stefanpejcic/openpanel-whmcs-module
 # Author: Stefan Pejcic
 # Created: 01.05.2024
-# Last Modified: 08.10.2024
+# Last Modified: 09.10.2024
 # Company: openpanel.com
 # Copyright (c) Stefan Pejcic
 # 
