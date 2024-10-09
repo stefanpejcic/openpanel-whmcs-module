@@ -98,7 +98,18 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
                 $options[CURLOPT_POSTFIELDS] = json_encode($data);
             }
             break;
-
+        
+        case 'GET':
+            $options[CURLOPT_CUSTOMREQUEST] = 'GET';
+            break;
+        
+        case 'PUT':
+            $options[CURLOPT_CUSTOMREQUEST] = 'PUT';
+            if ($data !== null) {
+                $options[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
+            break;
+        
         case 'CONNECT':
             $options[CURLOPT_CUSTOMREQUEST] = 'CONNECT';
             if ($data !== null) {
