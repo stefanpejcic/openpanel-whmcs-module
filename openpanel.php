@@ -29,6 +29,10 @@
 ################################################################################
 
 
+if (!defined("WHMCS")) {
+    die("This file cannot be accessed directly");
+}
+
 ############### CORE STUFF ##################
 # BASIC AUTH, SHOULD BE REUSED IN ALL ROUTES
 function getApiProtocol($hostname) {
@@ -145,19 +149,10 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
     // Decode the response JSON
     $responseData = json_decode($response, true);
 
-    // Check for errors
-    if (curl_errno($curl)) {
-        $result = array("success" => false, "message" => "cURL Error: " . curl_error($curl));
-    } elseif ($responseData && isset($responseData['response']['message'])) {
-        $result = array("success" => true, "message" => $responseData['response']['message']);
-    } else {
-        $result = array("success" => false, "message" => "API request failed", "response" => $responseData);
-    }
-
     // Close cURL session
     curl_close($curl);
 
-    return $result;
+    return $responseData;
 }
 
 
@@ -291,9 +286,8 @@ function openpanel_ChangePassword($params) {
         );
 
         // Checking for errors
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
-            //return json_encode(array("success" => true, "message" => $decodedResponse['response']['message']));
-            return 'success'; 
+        if !(isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return json_encode(array("success" => true, "message" => $decodedResponse['response']['message']));
         } else {
             return json_encode(array("success" => false, "message" => isset($decodedResponse['error']) ? $decodedResponse['error'] : "An unknown error occurred."));
         }
@@ -477,7 +471,7 @@ function openpanel_ClientArea($params) {
     // Make API request to get login link
     $response = apiRequest($getLoginLinkEndpoint, $jwtToken, $loginData, 'CONNECT');
 
-    if ($response["success"] && isset($response["link"])) {
+    if (isset($response["link"])) {
         $code = '<script>
                     function loginOpenPanelButton() {
                         var openpanel_btn = document.getElementById("loginLink");
@@ -545,7 +539,7 @@ function openpanel_LoginLink($params) {
                 </a>';
         $code .= '<p id="refreshMessage" style="display: none;">One-time login link has already been used, please refresh the page to login again.</p>';
     } else {
-        $code = '<p>Error: Unable to generate login link for OpenPanel. Please try again later.</p>';
+        $code = '<p>Error: Unable to generate the login link. Please try again later.</p>';
         if (isset($response["message"])) {
             $code .= '<p>Server Response: ' . htmlentities($response["message"]) . '</p>';
         }
