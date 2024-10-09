@@ -286,7 +286,7 @@ function openpanel_ChangePassword($params) {
         );
 
         // Checking for errors
-        if !(isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+        if (!isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
             return json_encode(array("success" => true, "message" => $decodedResponse['response']['message']));
         } else {
             return json_encode(array("success" => false, "message" => isset($decodedResponse['error']) ? $decodedResponse['error'] : "An unknown error occurred."));
