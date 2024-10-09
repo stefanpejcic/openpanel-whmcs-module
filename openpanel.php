@@ -35,6 +35,7 @@ function getApiProtocol($hostname) {
     return filter_var($hostname, FILTER_VALIDATE_IP) === false ? 'https://' : 'http://';
 }
 
+
 function getAuthToken($params) {
     $apiProtocol = getApiProtocol($params["serverhostname"]);
     $authEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/';
@@ -73,6 +74,8 @@ function getAuthToken($params) {
 
     return array($token, $error);
 }
+
+
 
 function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
     // Prepare cURL request
