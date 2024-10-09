@@ -76,10 +76,11 @@ function getAuthToken($params) {
 }
 
 
-
 function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
     // Prepare cURL request
     $curl = curl_init();
+    
+    // Set default cURL options
     $options = array(
         CURLOPT_URL => $endpoint,
         CURLOPT_RETURNTRANSFER => true,
@@ -89,13 +90,35 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
         ),
     );
 
-    if ($method === 'POST' && $data !== null) {
-        $options[CURLOPT_POST] = true;
-        $options[CURLOPT_POSTFIELDS] = json_encode($data);
-    } elseif ($method === 'DELETE') {
-        $options[CURLOPT_CUSTOMREQUEST] = 'DELETE';
+    // Handle different HTTP methods
+    switch ($method) {
+        case 'POST':
+            if ($data !== null) {
+                $options[CURLOPT_POST] = true;
+                $options[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
+            break;
+
+        case 'PATCH':
+            $options[CURLOPT_CUSTOMREQUEST] = 'PATCH';
+            if ($data !== null) {
+                $options[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
+            break;
+
+        case 'DELETE':
+            $options[CURLOPT_CUSTOMREQUEST] = 'DELETE';
+            if ($data !== null) {
+                $options[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
+            break;
+
+        default:
+            // Handle unsupported methods
+            throw new InvalidArgumentException("Unsupported method: $method");
     }
 
+    // Set the options for the cURL request
     curl_setopt_array($curl, $options);
 
     // Execute cURL request
@@ -110,7 +133,7 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
     } elseif ($responseData && isset($responseData['response']['message'])) {
         $result = array("success" => true, "message" => $responseData['response']['message']);
     } else {
-        $result = array("success" => false, "message" => "API request failed");
+        $result = array("success" => false, "message" => "API request failed", "response" => $responseData);
     }
 
     // Close cURL session
