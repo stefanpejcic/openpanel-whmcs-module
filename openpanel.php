@@ -226,15 +226,14 @@ function openpanel_ChangePassword($params) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
-
     try {
+        
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $changePasswordEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
     
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $changePasswordEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-
-    // Prepare data for password change
-    $passwordData = array('password' => $params["password"]);
-
+        // Prepare data for password change
+        $passwordData = array('password' => $params["password"]);
+    
 
         // Make API request to change password for user
         $response = apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH');
@@ -266,10 +265,6 @@ function openpanel_ChangePassword($params) {
 }
 
 
-
-
-# todo from here down 👍 
-
 # SUSPEND ACCOUNT
 function openpanel_SuspendAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
@@ -277,16 +272,44 @@ function openpanel_SuspendAccount($params) {
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
-
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $suspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-
-    // Prepare data for account suspension
-    $suspendData = array('action' => 'suspend');
-
-    // Make API request to suspend account
-    return json_encode(apiRequest($suspendAccountEndpoint, $jwtToken, $suspendData, 'PATCH'));
+    
+    try {
+        
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $suspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
+    
+        // Prepare data for account suspension
+        $suspendData = array('action' => 'suspend');
+    
+        // Make API request to suspend account
+        $response = apiRequest($suspendAccountEndpoint, $jwtToken, $suspendData, 'PATCH');
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+    
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return 'success';
+        } else {
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+        }
+    
+    } catch (Exception $e) {
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';        
 }
+
+
+
+
 
 # UNSUSPEND ACCOUNT
 function openpanel_UnsuspendAccount($params) {
@@ -296,15 +319,42 @@ function openpanel_UnsuspendAccount($params) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $unsuspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-
-    // Prepare data for account unsuspension
-    $unsuspendData = array('action' => 'unsuspend');
-
-    // Make API request to unsuspend account
-    return json_encode(apiRequest($unsuspendAccountEndpoint, $jwtToken, $unsuspendData, 'PATCH'));
+    try {
+        
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $unsuspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
+    
+        // Prepare data for account unsuspension
+        $unsuspendData = array('action' => 'unsuspend');
+    
+        // Make API request to unsuspend account
+        $response = apiRequest($unsuspendAccountEndpoint, $jwtToken, $unsuspendData, 'PATCH');
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+    
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return 'success';
+        } else {
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+        }
+    
+    } catch (Exception $e) {
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';        
 }
+
+
+
 
 
 # CHANGE PACKAGE (PLAN)
@@ -315,22 +365,46 @@ function openpanel_ChangePackage($params) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
-    $apiProtocol = getApiProtocol($params["serverhostname"]);
-    $changePlanEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
+    try {
+        $apiProtocol = getApiProtocol($params["serverhostname"]);
+        $changePlanEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
-    $packageId = $params['pid'];  // Get the Product ID (Package ID)
+        $packageId = $params['pid'];  // Get the Product ID (Package ID)
+        
+        // Query the database to get the package name
+        $result = select_query("tblproducts", "name", array("id" => $packageId));
+        $data = mysql_fetch_array($result);
+        $packageName = $data['name'];  // This is the package name
     
-    // Query the database to get the package name
-    $result = select_query("tblproducts", "name", array("id" => $packageId));
-    $data = mysql_fetch_array($result);
-    $packageName = $data['name'];  // This is the package name
+        
+        // Prepare data for changing plan
+        $planData = array('plan_name' => $packageName);
+
+        // Make API request to change plan
+        $response = apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT');
+        // Decode the JSON response
+        $decodedResponse = json_decode($response, true);
+    
+        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+            return 'success';
+        } else {
+            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+        }   
 
     
-    // Prepare data for changing plan
-    $planData = array('plan_name' => $packageName);
-
-    // Make API request to change plan
-    return json_encode(apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT'));
+    } catch (Exception $e) {
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+    
+        return $e->getMessage();
+    }
+    
+    return 'success';    
 }
 
 
