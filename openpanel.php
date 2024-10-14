@@ -8,17 +8,17 @@
 # Last Modified: 09.10.2024
 # Company: openpanel.com
 # Copyright (c) Stefan Pejcic
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -83,7 +83,7 @@ function getAuthToken($params) {
 function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
     // Prepare cURL request
     $curl = curl_init();
-    
+
     // Set default cURL options
     $options = array(
         CURLOPT_URL => $endpoint,
@@ -102,25 +102,25 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
                 $options[CURLOPT_POSTFIELDS] = json_encode($data);
             }
             break;
-        
+
         case 'GET':
             $options[CURLOPT_CUSTOMREQUEST] = 'GET';
             break;
-        
+
         case 'PUT':
             $options[CURLOPT_CUSTOMREQUEST] = 'PUT';
             if ($data !== null) {
                 $options[CURLOPT_POSTFIELDS] = json_encode($data);
             }
             break;
-        
+
         case 'CONNECT':
             $options[CURLOPT_CUSTOMREQUEST] = 'CONNECT';
             if ($data !== null) {
                 $options[CURLOPT_POSTFIELDS] = json_encode($data);
             }
             break;
-        
+
         case 'PATCH':
             $options[CURLOPT_CUSTOMREQUEST] = 'PATCH';
             if ($data !== null) {
@@ -167,19 +167,19 @@ function openpanel_CreateAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
     if (!$jwtToken) {
-        return json_encode(array("success" => false, "message" => $error));
+        return $error; // Return the error message as a plain string
     }
-    
+
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $createUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users';
         $packageId = $params['pid'];  // Get the Product ID (Package ID)
-        
+
         // Query the database to get the package name
         $result = select_query("tblproducts", "name", array("id" => $packageId));
         $data = mysql_fetch_array($result);
         $packageName = $data['name'];  // This is the package name
-    
+
         // Prepare data for user creation
         $userData = array(
             'username' => $params["username"],
@@ -187,73 +187,70 @@ function openpanel_CreateAccount($params) {
             'email' => $params["clientsdetails"]["email"],
             'plan_name' => $packageName
         );
-    
+
         // Make API request to create user
         $response = apiRequest($createUserEndpoint, $jwtToken, $userData);
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
-    
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+
+        // Log the API request and response for debugging
+        logModuleCall(
+            'openpanel',
+            'CreateAccount',
+            $userData,
+            $response
+        );
+
+        if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
         }
-    
+
     } catch (Exception $e) {
         logModuleCall(
-            'provisioningmodule',
+            'openpanel',
             __FUNCTION__,
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
+
         return $e->getMessage();
     }
-    
-    return 'success';
 }
+
 
 # TERMINATE ACCOUNT
 function openpanel_TerminateAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
     if (!$jwtToken) {
-        return json_encode(array("success" => false, "message" => $error));
+        return $error; // Return the error message as a plain string
     }
-  
+
     try {
-    
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $terminateUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
         // Make API request to terminate user
         $response = apiRequest($terminateUserEndpoint, $jwtToken, null, 'DELETE');
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
-    
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+
+        if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
         }
-
-
 
     } catch (Exception $e) {
         logModuleCall(
-            'provisioningmodule',
+            'openpanel',
             __FUNCTION__,
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
+
         return $e->getMessage();
     }
-    
-    return 'success';
-
 }
 
 
@@ -268,13 +265,13 @@ function openpanel_ChangePassword($params) {
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $changePasswordEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-        
+
         // Prepare data for password change
         $passwordData = array('password' => $params["password"]);
-        
+
         // Make API request to change password for user
         $response = apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH');
-        
+
         // Decode the JSON response
         $decodedResponse = json_decode($response, true);
 
@@ -304,7 +301,7 @@ function openpanel_ChangePassword($params) {
 
         return json_encode(array("success" => false, "message" => $e->getMessage()));
     }
-    return 'success'; 
+    return 'success';
 }
 
 
@@ -315,26 +312,26 @@ function openpanel_SuspendAccount($params) {
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
-    
+
     try {
-        
+
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $suspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-    
+
         // Prepare data for account suspension
         $suspendData = array('action' => 'suspend');
-    
+
         // Make API request to suspend account
         $response = apiRequest($suspendAccountEndpoint, $jwtToken, $suspendData, 'PATCH');
         // Decode the JSON response
         $decodedResponse = json_decode($response, true);
-    
+
         if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
             return 'success';
         } else {
             return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
         }
-    
+
     } catch (Exception $e) {
         logModuleCall(
             'provisioningmodule',
@@ -343,11 +340,11 @@ function openpanel_SuspendAccount($params) {
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
+
         return $e->getMessage();
     }
-    
-    return 'success';        
+
+    return 'success';
 }
 
 
@@ -363,24 +360,24 @@ function openpanel_UnsuspendAccount($params) {
     }
 
     try {
-        
+
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $unsuspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
-    
+
         // Prepare data for account unsuspension
         $unsuspendData = array('action' => 'unsuspend');
-    
+
         // Make API request to unsuspend account
         $response = apiRequest($unsuspendAccountEndpoint, $jwtToken, $unsuspendData, 'PATCH');
         // Decode the JSON response
         $decodedResponse = json_decode($response, true);
-    
+
         if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
             return 'success';
         } else {
             return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
         }
-    
+
     } catch (Exception $e) {
         logModuleCall(
             'provisioningmodule',
@@ -389,11 +386,11 @@ function openpanel_UnsuspendAccount($params) {
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
+
         return $e->getMessage();
     }
-    
-    return 'success';        
+
+    return 'success';
 }
 
 
@@ -413,13 +410,13 @@ function openpanel_ChangePackage($params) {
         $changePlanEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
         $packageId = $params['pid'];  // Get the Product ID (Package ID)
-        
+
         // Query the database to get the package name
         $result = select_query("tblproducts", "name", array("id" => $packageId));
         $data = mysql_fetch_array($result);
         $packageName = $data['name'];  // This is the package name
-    
-        
+
+
         // Prepare data for changing plan
         $planData = array('plan_name' => $packageName);
 
@@ -427,14 +424,14 @@ function openpanel_ChangePackage($params) {
         $response = apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT');
         // Decode the JSON response
         $decodedResponse = json_decode($response, true);
-    
+
         if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
             return 'success';
         } else {
             return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
-        }   
+        }
 
-    
+
     } catch (Exception $e) {
         logModuleCall(
             'provisioningmodule',
@@ -443,11 +440,11 @@ function openpanel_ChangePackage($params) {
             $e->getMessage(),
             $e->getTraceAsString()
         );
-    
+
         return $e->getMessage();
     }
-    
-    return 'success';    
+
+    return 'success';
 }
 
 
