@@ -191,14 +191,6 @@ function openpanel_CreateAccount($params) {
         // Make API request to create user
         $response = apiRequest($createUserEndpoint, $jwtToken, $userData);
 
-        // Log the API request and response for debugging
-        logModuleCall(
-            'openpanel',
-            'CreateAccount',
-            $userData,
-            $response
-        );
-
         if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
@@ -236,13 +228,6 @@ function openpanel_TerminateAccount($params) {
             $unsuspendData = array('action' => 'unsuspend');
             $unsuspendResponse = apiRequest($userEndpoint, $jwtToken, $unsuspendData, 'PATCH');
 
-            // Log the unsuspend request and response for debugging
-            logModuleCall(
-                'openpanel',
-                'TerminateAccount - Unsuspend',
-                $unsuspendData,
-                $unsuspendResponse
-            );
 
         } catch (Exception $e) {
             // If unsuspend fails, check if the account doesn't exist
@@ -259,13 +244,6 @@ function openpanel_TerminateAccount($params) {
         try {
             $response = apiRequest($userEndpoint, $jwtToken, null, 'DELETE');
 
-            // Log the delete request and response for debugging
-            logModuleCall(
-                'openpanel',
-                'TerminateAccount - Delete',
-                $userEndpoint,
-                $response
-            );
 
             if (isset($response['success']) && $response['success'] === true) {
                 return 'success';
@@ -373,14 +351,6 @@ function openpanel_SuspendAccount($params) {
         // Make the API request to suspend the account
         $response = apiRequest($suspendAccountEndpoint, $jwtToken, $suspendData, 'PATCH');
 
-        // Log the API request and response for debugging
-        logModuleCall(
-            'openpanel',
-            'SuspendAccount',
-            $suspendData,
-            $response
-        );
-
         // Check the API response for success or failure
         if (isset($response['success']) && $response['success'] === true) {
             return 'success';
@@ -429,13 +399,6 @@ function openpanel_UnsuspendAccount($params) {
         // Make the API request to unsuspend the account
         $response = apiRequest($unsuspendAccountEndpoint, $jwtToken, $unsuspendData, 'PATCH');
 
-        // Log the API request and response for debugging
-        logModuleCall(
-            'openpanel',
-            'UnsuspendAccount',
-            $unsuspendData,
-            $response
-        );
 
         // Check the API response for success or failure
         if (isset($response['success']) && $response['success'] === true) {
@@ -597,7 +560,7 @@ function openpanel_LoginLink($params) {
     // Make API request to get login link
     $response = apiRequest($getLoginLinkEndpoint, $jwtToken, $loginData, 'CONNECT');
 
-    if ($response["success"] && isset($response["link"])) {
+    if (isset($response["link"])) {
         $code = '<script>
                     function loginOpenPanelButton() {
                         var openpanel_btn = document.getElementById("loginLink");
@@ -610,6 +573,7 @@ function openpanel_LoginLink($params) {
                 </a>';
         $code .= '<p id="refreshMessage" style="display: none;">One-time login link has already been used, please refresh the page to login again.</p>';
     } else {
+        // Log or print the response in case of error
         $code = '<p>Error: Unable to generate the login link. Please try again later.</p>';
         if (isset($response["message"])) {
             $code .= '<p>Server Response: ' . htmlentities($response["message"]) . '</p>';
@@ -618,6 +582,7 @@ function openpanel_LoginLink($params) {
 
     return $code;
 }
+
 
 
 
