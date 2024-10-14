@@ -259,7 +259,7 @@ function openpanel_ChangePassword($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
     if (!$jwtToken) {
-        return json_encode(array("success" => false, "message" => $error));
+        return $error; // Return the error message as a plain string
     }
 
     try {
@@ -272,37 +272,37 @@ function openpanel_ChangePassword($params) {
         // Make API request to change password for user
         $response = apiRequest($changePasswordEndpoint, $jwtToken, $passwordData, 'PATCH');
 
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
-
+        // Log the API request and response
         logModuleCall(
             'openpanel',
-            __FUNCTION__,
-            $params,
+            'ChangePassword',
+            $passwordData,
             $response
         );
 
-        // Checking for errors
-        if (!isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
-            return json_encode(array("success" => true, "message" => $decodedResponse['response']['message']));
+        // Check for success in the response
+        if (isset($response['success']) && $response['success'] === true) {
+            return 'success';
         } else {
-            return json_encode(array("success" => false, "message" => isset($decodedResponse['error']) ? $decodedResponse['error'] : "An unknown error occurred."));
+            // Return the error message from the response or a default message
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred during password change.';
         }
 
     } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
+        // Log the exception
         logModuleCall(
             'openpanel',
-            __FUNCTION__,
+            'ChangePassword Exception',
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
 
-        return json_encode(array("success" => false, "message" => $e->getMessage()));
+        // Return the exception message
+        return 'Error: ' . $e->getMessage();
     }
-    return 'success';
 }
+
 
 
 # SUSPEND ACCOUNT
