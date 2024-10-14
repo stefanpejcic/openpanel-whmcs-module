@@ -309,43 +309,53 @@ function openpanel_ChangePassword($params) {
 function openpanel_SuspendAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
+    // If JWT token is not received, return error message
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
     try {
-
+        // Prepare the API endpoint for suspending the account
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $suspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
         // Prepare data for account suspension
         $suspendData = array('action' => 'suspend');
 
-        // Make API request to suspend account
+        // Make the API request to suspend the account
         $response = apiRequest($suspendAccountEndpoint, $jwtToken, $suspendData, 'PATCH');
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
 
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+        // Log the API request and response for debugging
+        logModuleCall(
+            'openpanel',
+            'SuspendAccount',
+            $suspendData,
+            $response
+        );
+
+        // Check the API response for success or failure
+        if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            // Return the error message from the API response
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
         }
 
     } catch (Exception $e) {
+        // Log the exception details
         logModuleCall(
-            'provisioningmodule',
-            __FUNCTION__,
+            'openpanel',
+            'SuspendAccount Exception',
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
 
-        return $e->getMessage();
+        // Return the exception message
+        return 'Error: ' . $e->getMessage();
     }
-
-    return 'success';
 }
+
 
 
 
@@ -355,43 +365,53 @@ function openpanel_SuspendAccount($params) {
 function openpanel_UnsuspendAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
+    // If JWT token is not received, return error message
     if (!$jwtToken) {
         return json_encode(array("success" => false, "message" => $error));
     }
 
     try {
-
+        // Prepare the API endpoint to unsuspend the account
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $unsuspendAccountEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
-        // Prepare data for account unsuspension
+        // Prepare data for account unsuspension (if any)
         $unsuspendData = array('action' => 'unsuspend');
 
-        // Make API request to unsuspend account
+        // Make the API request to unsuspend the account
         $response = apiRequest($unsuspendAccountEndpoint, $jwtToken, $unsuspendData, 'PATCH');
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
 
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+        // Log the API request and response for debugging
+        logModuleCall(
+            'openpanel',
+            'UnsuspendAccount',
+            $unsuspendData,
+            $response
+        );
+
+        // Check the API response for success or failure
+        if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            // Return the error message from the API response
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
         }
 
     } catch (Exception $e) {
+        // Log the exception details
         logModuleCall(
-            'provisioningmodule',
-            __FUNCTION__,
+            'openpanel',
+            'UnsuspendAccount Exception',
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
 
-        return $e->getMessage();
+        // Return the exception message
+        return 'Error: ' . $e->getMessage();
     }
-
-    return 'success';
 }
+
 
 
 
