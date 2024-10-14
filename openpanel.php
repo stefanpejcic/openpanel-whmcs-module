@@ -229,15 +229,62 @@ function openpanel_TerminateAccount($params) {
 
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
-        $terminateUserEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
+        $userEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
-        // Make API request to terminate user
-        $response = apiRequest($terminateUserEndpoint, $jwtToken, null, 'DELETE');
+        // Step 1: Unsuspend the account if it's suspended
+        try {
+            $unsuspendData = array('action' => 'unsuspend');
+            $unsuspendResponse = apiRequest($userEndpoint, $jwtToken, $unsuspendData, 'PATCH');
 
-        if (isset($response['success']) && $response['success'] === true) {
-            return 'success';
-        } else {
-            return isset($response['error']) ? $response['error'] : 'An unknown error occurred.';
+            // Log the unsuspend request and response for debugging
+            logModuleCall(
+                'openpanel',
+                'TerminateAccount - Unsuspend',
+                $unsuspendData,
+                $unsuspendResponse
+            );
+
+        } catch (Exception $e) {
+            // If unsuspend fails, check if the account doesn't exist
+            $errorMessage = $e->getMessage();
+            if (strpos($errorMessage, 'not found') !== false || strpos($errorMessage, 'User') !== false) {
+                // Account does not exist, return an error message
+                return 'Error: Account "' . $params["username"] . '" does not exist and could not be deleted.';
+            } else {
+                return 'Failed to unsuspend account before termination: ' . $errorMessage;
+            }
+        }
+
+        // Step 2: Now attempt to delete the account
+        try {
+            $response = apiRequest($userEndpoint, $jwtToken, null, 'DELETE');
+
+            // Log the delete request and response for debugging
+            logModuleCall(
+                'openpanel',
+                'TerminateAccount - Delete',
+                $userEndpoint,
+                $response
+            );
+
+            if (isset($response['success']) && $response['success'] === true) {
+                return 'success';
+            } else {
+                return isset($response['error']) ? $response['error'] : 'An unknown error occurred during termination.';
+            }
+
+        } catch (Exception $e) {
+            // Log the exception for the delete action
+            logModuleCall(
+                'openpanel',
+                'TerminateAccount - Delete Exception',
+                $params,
+                $e->getMessage(),
+                $e->getTraceAsString()
+            );
+
+            // Handle exception during the delete action
+            return 'Error during account termination: ' . $e->getMessage();
         }
 
     } catch (Exception $e) {
@@ -252,6 +299,7 @@ function openpanel_TerminateAccount($params) {
         return $e->getMessage();
     }
 }
+
 
 
 # CHANGE PASSWORD FOR ACCOUNT
