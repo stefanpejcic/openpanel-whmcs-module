@@ -402,7 +402,7 @@ function openpanel_ChangePackage($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
     if (!$jwtToken) {
-        return json_encode(array("success" => false, "message" => $error));
+        return $error; // Return the error message as a plain string
     }
 
     try {
@@ -416,36 +416,42 @@ function openpanel_ChangePackage($params) {
         $data = mysql_fetch_array($result);
         $packageName = $data['name'];  // This is the package name
 
-
         // Prepare data for changing plan
         $planData = array('plan_name' => $packageName);
 
         // Make API request to change plan
         $response = apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT');
-        // Decode the JSON response
-        $decodedResponse = json_decode($response, true);
 
-        if (isset($decodedResponse['success']) && $decodedResponse['success'] === true) {
+        // Log the API request and response
+        logModuleCall(
+            'openpanel',
+            'ChangePackage',
+            $planData,
+            $response
+        );
+
+        if (isset($response['success']) && $response['success'] === true) {
             return 'success';
         } else {
-            return isset($decodedResponse['error']) ? $decodedResponse['error'] : 'An unknown error occurred.';
+            // Return the error message from the response or a default message
+            return isset($response['error']) ? $response['error'] : 'An unknown error occurred during package change.';
         }
 
-
     } catch (Exception $e) {
+        // Log the exception
         logModuleCall(
-            'provisioningmodule',
-            __FUNCTION__,
+            'openpanel',
+            'ChangePackage Exception',
             $params,
             $e->getMessage(),
             $e->getTraceAsString()
         );
 
-        return $e->getMessage();
+        // Return the exception message
+        return 'Error: ' . $e->getMessage();
     }
-
-    return 'success';
 }
+
 
 
 
