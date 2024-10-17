@@ -662,5 +662,4 @@ function openpanel_UsageUpdate($params) {
     return $result;
 }
 
-
 ?>
