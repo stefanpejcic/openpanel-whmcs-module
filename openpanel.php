@@ -583,8 +583,145 @@ function openpanel_LoginLink($params) {
     return $code;
 }
 
+function getAvailablePlans($params) {
+    // Use WHMCS server parameters for OpenPanel
+    $username = $params['serverusername'];  // OpenPanel username
+    $password = $params['serverpassword'];  // OpenPanel password
+    $hostname = $params['serverhostname'];  // OpenPanel hostname
 
+    $apiProtocol = getApiProtocol($hostname);
+    $plansEndpoint = $apiProtocol . $hostname . ':2087/api/api/plans';  // Correct endpoint for OpenPanel API
 
+    // Get the JWT token using the server credentials
+    list($jwtToken, $error) = getAuthToken($params);
+    if (!$jwtToken) {
+        return "Error fetching token: $error"; // Return error if token cannot be fetched
+    }
+
+    // Prepare cURL request with Bearer token
+    $curl = curl_init();
+    curl_setopt_array($curl, array(
+        CURLOPT_URL => $plansEndpoint,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => array(
+            "Authorization: Bearer " . $jwtToken,
+            "Content-Type: application/json"
+        ),
+        CURLOPT_CUSTOMREQUEST => 'GET',
+        // Enable SSL verification for production
+        CURLOPT_SSL_VERIFYHOST => 2,  // Verify the SSL certificate's host
+        CURLOPT_SSL_VERIFYPEER => true,  // Verify the SSL certificate
+    ));
+
+    // Execute the request
+    $response = curl_exec($curl);
+
+    // Capture any errors
+    if (curl_errno($curl)) {
+        return "cURL Error: " . curl_error($curl); // Return cURL error
+    }
+
+    // Close cURL session
+    curl_close($curl);
+
+    // Decode the response
+    $plansResponse = json_decode($response, true);
+
+    // Check if the plans were retrieved
+    if (isset($plansResponse['plans']) && is_array($plansResponse['plans'])) {
+        return $plansResponse['plans']; // Return the plans array
+    } else {
+        return "Error fetching plans: " . json_encode($plansResponse); // Return error
+    }
+}
+
+function openpanel_ConfigOptions() {
+    // Get the product ID from the request, if available
+    $productId = isset($_REQUEST['id']) ? (int)$_REQUEST['id'] : 0;
+
+    if (!$productId) {
+        // If no product ID exists yet, prompt the user to save first
+        return array(
+            'Note' => array(
+                'Description' => 'Please save the product first to configure options.',
+            ),
+        );
+    }
+
+    // Fetch the server group assigned to this product
+    $result = select_query('tblproducts', 'servergroup', array('id' => $productId));
+    $data = mysql_fetch_array($result);
+    $serverGroupId = $data['servergroup'];
+
+    if (!$serverGroupId) {
+        // If no server group is selected yet, do not show the plans field
+        return array(
+            'Note' => array(
+                'Description' => 'Please assign a server group to this product to fetch available plans.',
+            ),
+        );
+    }
+
+    // Fetch servers in the selected server group
+    $serversResult = select_query('tblservers', '*', array('disabled' => 0));
+    $servers = array();
+    while ($serverData = mysql_fetch_array($serversResult)) {
+        // Check if the server belongs to the selected server group
+        $serverGroupRelResult = select_query('tblservergroupsrel', 'groupid', array('serverid' => $serverData['id']));
+        while ($groupRel = mysql_fetch_array($serverGroupRelResult)) {
+            if ($groupRel['groupid'] == $serverGroupId) {
+                $servers[] = $serverData;
+                break;
+            }
+        }
+    }
+
+    if (count($servers) == 0) {
+        // No servers found in the group, show a message and don't load the plans field
+        return array(
+            'Note' => array(
+                'Description' => 'No servers found in the assigned server group.',
+            ),
+        );
+    }
+
+    // Use the first server in the group
+    $server = $servers[0];
+    $params = array(
+        'serverhostname' => $server['hostname'],
+        'serverusername' => $server['username'],
+        'serverpassword' => decrypt($server['password']),
+    );
+
+    // Fetch available plans from OpenPanel
+    $plans = getAvailablePlans($params);
+
+    // Handle errors in fetching plans
+    if (is_string($plans)) {
+        // Error message
+        return array(
+            'Note' => array(
+                'Description' => 'Error fetching plans: ' . $plans,
+            ),
+        );
+    }
+
+    // Populate plans in the dropdown
+    $planOptions = array();
+    if ($plans && is_array($plans)) {
+        foreach ($plans as $plan) {
+            $planOptions[$plan['id']] = $plan['name'];
+        }
+    }
+
+    return array(
+        'Plan' => array(
+            'Type' => 'dropdown',
+            'Options' => $planOptions,
+            'Description' => 'Select a plan from OpenPanel',
+        ),
+    );
+}
 
 ############### MAINTENANCE ################
 
