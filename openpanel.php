@@ -590,7 +590,7 @@ function getAvailablePlans($params) {
     $hostname = $params['serverhostname'];  // OpenPanel hostname
 
     $apiProtocol = getApiProtocol($hostname);
-    $plansEndpoint = $apiProtocol . $hostname . ':2087/api/api/plans';  // Correct endpoint for OpenPanel API
+    $plansEndpoint = $apiProtocol . $hostname . ':2087/api/plans';  // Correct endpoint for OpenPanel API
 
     // Get the JWT token using the server credentials
     list($jwtToken, $error) = getAuthToken($params);
