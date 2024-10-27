@@ -433,56 +433,59 @@ function openpanel_ChangePackage($params) {
     list($jwtToken, $error) = getAuthToken($params);
 
     if (!$jwtToken) {
-        return $error; // Return the error message as a plain string
+        // Only log token issues as these are critical.
+        logModuleCall('openpanel', 'ChangePackage', $params, "Error fetching token: $error");
+        return $error;
     }
 
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
         $changePlanEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/users/' . $params["username"];
 
-        $packageId = $params['pid'];  // Get the Product ID (Package ID)
+        // Fetch the stored plan ID
+        $storedPlanId = $params['configoption1'];
 
-        // Query the database to get the package name
-        $result = select_query("tblproducts", "name", array("id" => $packageId));
-        $data = mysql_fetch_array($result);
-        $packageName = $data['name'];  // This is the package name
+        // Retrieve available plans from the server
+        $plans = getAvailablePlans($params);
+
+        if (is_string($plans)) {
+            logModuleCall('openpanel', 'ChangePackage', $params, "Error retrieving plans: $plans");
+            return "Error retrieving plans: $plans";
+        }
+
+        // Find the actual plan name using the stored plan ID
+        $planName = null;
+        foreach ($plans as $plan) {
+            if ($plan['id'] == $storedPlanId) {
+                $planName = $plan['name'];
+                break;
+            }
+        }
+
+        if (!$planName) {
+            logModuleCall('openpanel', 'ChangePackage', $params, "No matching plan name found for stored plan ID: $storedPlanId");
+            return "Error: No matching plan name found for stored plan ID: $storedPlanId";
+        }
 
         // Prepare data for changing plan
-        $planData = array('plan_name' => $packageName);
+        $planData = array('plan_name' => $planName);
 
         // Make API request to change plan
         $response = apiRequest($changePlanEndpoint, $jwtToken, $planData, 'PUT');
 
-        // Log the API request and response
-        logModuleCall(
-            'openpanel',
-            'ChangePackage',
-            $planData,
-            $response
-        );
-
-        if (isset($response['success']) && $response['success'] === true) {
-            return 'success';
-        } else {
-            // Return the error message from the response or a default message
+        // Log only on failure
+        if (!(isset($response['success']) && $response['success'] === true)) {
+            logModuleCall('openpanel', 'ChangePackage', array('command' => "opencli user-change_plan {$params['username']} $planName"), $response);
             return isset($response['error']) ? $response['error'] : 'An unknown error occurred during package change.';
         }
 
-    } catch (Exception $e) {
-        // Log the exception
-        logModuleCall(
-            'openpanel',
-            'ChangePackage Exception',
-            $params,
-            $e->getMessage(),
-            $e->getTraceAsString()
-        );
+        return 'success';
 
-        // Return the exception message
+    } catch (Exception $e) {
+        logModuleCall('openpanel', 'ChangePackage Exception', $params, $e->getMessage(), $e->getTraceAsString());
         return 'Error: ' . $e->getMessage();
     }
 }
-
 
 
 
