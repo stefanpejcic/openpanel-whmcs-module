@@ -23,15 +23,20 @@ WHMCS module for [OpenPanel](https://openpanel.com)
    ```
 
 ### Supported Operations
-- Create a new user account
-- Auto-login for user
+
+From WHMCS admin area:
+- Create a new user account + add domain
+- Auto-login as user
 - Suspend account
 - Unsuspend account
 - Change package
 - Change password
 - Terminate account
-- Auto-login for admin
 - View user information as admin
+
+From WHMCS client area:
+- Auto-login as user
+- Change password
 
 ### Configuration
 
