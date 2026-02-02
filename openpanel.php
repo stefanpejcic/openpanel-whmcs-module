@@ -55,7 +55,7 @@ function openpanelBaseUrl($params) {
     send username and password to receive JWT token as `access_token`
     https://dev.openpanel.com/openadmin-api/#Getting-started-with-the-API
 */
-function getOpenPanelAuthToken($params) {
+function openpanelGetAuthToken($params) {
     $endpoint = openpanelBaseUrl($params) . '/api/';
     $password = $params['serverpassword'] ?? '';
     $decrypted = @decrypt($password);
@@ -66,7 +66,7 @@ function getOpenPanelAuthToken($params) {
         'password' => $passwordToUse
     ];
 
-    $response = curl_exec_with_options([
+    $response = openpanel_exec_curl_with_options([
         CURLOPT_URL => $endpoint,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($postData),
@@ -82,7 +82,7 @@ function getOpenPanelAuthToken($params) {
 }
 
 // cURL executor
-function curl_exec_with_options(array $options) {
+function openpanel_exec_curl_with_options(array $options) {
     $curl = curl_init();
     curl_setopt_array($curl, $options + [
         CURLOPT_RETURNTRANSFER => true,
@@ -108,10 +108,10 @@ function curl_exec_with_options(array $options) {
     return $response;
 }
 
-function apiRequest($params, $uri, $token, $method = 'POST', $data = null) {
+function openpanelApiRequest($params, $uri, $token, $method = 'POST', $data = null) {
     try {
         $response = json_decode(
-            curl_exec_with_options([
+            openpanel_exec_curl_with_options([
                 CURLOPT_URL => openpanelBaseUrl($params) . $uri,
                 CURLOPT_CUSTOMREQUEST => $method,
                 CURLOPT_HTTPHEADER => [
@@ -147,9 +147,9 @@ function openpanelUserAction($params, $method, $payload = null) {
         }
     }
 
-    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
+    if (!$token = openpanelGetAuthToken($params)) return 'Authentication failed';
 
-    $response = apiRequest($params,'/api/users/' . $params['username'],$token,$method,$payload);
+    $response = openpanelApiRequest($params,'/api/users/' . $params['username'],$token,$method,$payload);
     return ($response['success'] ?? false)
         ? 'success'
         : ($response['error'] ?? 'Unknown error');
@@ -157,8 +157,8 @@ function openpanelUserAction($params, $method, $payload = null) {
 
 // GENERATE LOGIN LINK
 function openpanelGenerateLoginLink($params) {
-    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
-    $response = apiRequest($params, '/api/users/' . $params['username'], $token, 'CONNECT');
+    if (!$token = openpanelGetAuthToken($params)) return 'Authentication failed';
+    $response = openpanelApiRequest($params, '/api/users/' . $params['username'], $token, 'CONNECT');
     return isset($response['link'])
         ? [$response['link'], null]
         : [null, $response['message'] ?? 'Unable to generate login link'];
@@ -173,15 +173,8 @@ function loginOpenPanelButton() {
     document.getElementById("loginLink").style.display = "none";
 }
 </script>
-
-<a id="loginLink" class="btn btn-primary"  style="display:block;" href="' . htmlspecialchars($link) . '" target="_blank"
-   onclick="loginOpenPanelButton()">
-    Login to OpenPanel
-</a>
-
-<p id="refreshMessage" style="display:none;">
-    One-time login link has already been used, please refresh the page to login again.
-</p>';
+<a id="loginLink" class="btn btn-primary"  style="display:block;" href="' . htmlspecialchars($link) . '" target="_blank" onclick="loginOpenPanelButton()">Login to OpenPanel</a>
+<p id="refreshMessage" style="display:none;">One-time login link has already been used, please refresh the page to login again.</p>';
 }
 
 // helper function used on AdminServicesTabFields 
@@ -216,7 +209,7 @@ function openpanelGetServerParams($params) {
     https://dev.openpanel.com/openadmin-api/users.html#Create-account
 */
 function openpanel_CreateAccount($params) {
-    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
+    if (!$token = openpanelGetAuthToken($params)) return 'Authentication failed';
 
     $product = mysql_fetch_array(
         select_query('tblproducts', 'name', ['id' => $params['pid']])
@@ -242,7 +235,7 @@ function openpanel_CreateAccount($params) {
             'docroot'  => $params['docroot'] ?? '/var/www/html/' . $params['domain']
         ];
 
-        $domainResponse = apiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
+        $domainResponse = openpanelApiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
         if (isset($domainResponse['error'])) {
             return 'User created, but failed to add domain: ' . $domainResponse['error'];
         }
@@ -341,8 +334,8 @@ function openpanel_LoginLink($params) {
 
 // AVAILABLE PLANS
 function getAvailablePlans($params) {
-    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';  
-    $response = apiRequest($params, '/api/plans', $token, 'GET');
+    if (!$token = openpanelGetAuthToken($params)) return 'Authentication failed';  
+    $response = openpanelApiRequest($params, '/api/plans', $token, 'GET');
     return $response['plans'] ?? 'Invalid plans response';
 }
 
@@ -395,12 +388,12 @@ function openpanel_ConfigOptions() {
 
 // USAGE UPDATE
 function openpanel_UsageUpdate($params) {
-    $token = getOpenPanelAuthToken($params);
+    $token = openpanelGetAuthToken($params);
     if (!$token) {
         return json_encode(['success' => false, 'message' => 'Auth failed']);
     }
 
-    $usage = apiRequest($params, '/api/usage/disk', $token, 'GET');
+    $usage = openpanelApiRequest($params, '/api/usage/disk', $token, 'GET');
     foreach ($usage as $user => $values) {
         update_query('tblhosting', [
             'diskusage' => $values['disk_usage'],
@@ -426,13 +419,13 @@ function openpanel_AdminServicesTabFields($params) {
         $serverParams = openpanelGetServerParams($params);
         $apiParams = array_merge($params, $serverParams);
 
-        $token = getOpenPanelAuthToken($apiParams);
+        $token = openpanelGetAuthToken($apiParams);
         if (!$token) {
             $fields['OpenPanel Account Information'] = '<span class="badge bg-danger">Failed to authenticate with OpenAdmin API to fetch user information.</span>';
             return $fields;
         }
 
-        $response = apiRequest($apiParams, '/api/users/' . $params['username'], $token, 'GET');
+        $response = openpanelApiRequest($apiParams, '/api/users/' . $params['username'], $token, 'GET');
         if (empty($response['user'])) {
             $fields['OpenPanel Account Information'] = '<span class="badge bg-warning">User does not exist on this OpenPanel server</span>';
             return $fields;
