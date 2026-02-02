@@ -150,7 +150,6 @@ function openpanelUserAction($params, $method, $payload = null) {
     if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
 
     $response = apiRequest($params,'/api/users/' . $params['username'],$token,$method,$payload);
-
     return ($response['success'] ?? false)
         ? 'success'
         : ($response['error'] ?? 'Unknown error');
@@ -159,14 +158,7 @@ function openpanelUserAction($params, $method, $payload = null) {
 // GENERATE LOGIN LINK
 function openpanelGenerateLoginLink($params) {
     if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
-
-    $response = apiRequest(
-        $params,
-        '/api/users/' . $params['username'],
-        $token,
-        'CONNECT'
-    );
-
+    $response = apiRequest($params, '/api/users/' . $params['username'], $token, 'CONNECT');
     return isset($response['link'])
         ? [$response['link'], null]
         : [null, $response['message'] ?? 'Unable to generate login link'];
@@ -349,14 +341,7 @@ function openpanel_LoginLink($params) {
 // AVAILABLE PLANS
 function getAvailablePlans($params) {
     if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';  
-
-    $response = apiRequest(
-        $params,
-        '/api/plans',
-        $token,
-        'GET'
-    );
-
+    $response = apiRequest($params, '/api/plans', $token, 'GET');
     return $response['plans'] ?? 'Invalid plans response';
 }
 
@@ -414,13 +399,7 @@ function openpanel_UsageUpdate($params) {
         return json_encode(['success' => false, 'message' => 'Auth failed']);
     }
 
-    $usage = apiRequest(
-        $params,
-        '/api/usage/disk',
-        $token,
-        'GET'
-    );
-
+    $usage = apiRequest($params, '/api/usage/disk', $token, 'GET');
     foreach ($usage as $user => $values) {
         update_query('tblhosting', [
             'diskusage' => $values['disk_usage'],
@@ -452,13 +431,7 @@ function openpanel_AdminServicesTabFields($params) {
             return $fields;
         }
 
-        $response = apiRequest(
-            $apiParams,
-            '/api/users/' . $params['username'],
-            $token,
-            'GET'
-        );
-
+        $response = apiRequest($apiParams, '/api/users/' . $params['username'], $token, 'GET');
         if (empty($response['user'])) {
             $fields['OpenPanel Account Information'] = '<span class="badge bg-warning">User does not exist on this OpenPanel server</span>';
             return $fields;
