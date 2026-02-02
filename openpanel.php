@@ -247,10 +247,7 @@ function openpanel_ChangePackage($params) {
 
 // GENERATE LOGIN LINK
 function openpanelGenerateLoginLink($params) {
-    $token = getOpenPanelAuthToken($params);
-    if (!$token) {
-        return [null, 'Authentication failed'];
-    }
+    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
 
     $response = apiRequest(
         $params,
