@@ -20,6 +20,19 @@ WHMCS module for [OpenPanel](https://openpanel.com)
 
 How to setup WHMCS and OpenPanel: https://openpanel.com/docs/articles/extensions/openpanel-and-whmcs/
 
+##  Troubleshooting
+
+1. WHMCS Module Log:
+ - Triggered when OPENPANEL_DEBUG is enabled.
+ - Logs requests to the WHMCS database.
+ - Accessible via WHMCS Admin: /admin/index.php?rp=/admin/logs/module-log
+
+2. OpenAdmin API Log:
+ - Triggered when DEV_MODE is enabled on OpenAdmin:
+   `opencli config update dev_mode on && service admin restart`
+ - Logs incoming API requests.
+ - Stored at: /var/log/openpanel/admin/api.log
+
 
 ## Update
 
