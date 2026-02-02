@@ -362,4 +362,163 @@ function openpanel_UsageUpdate($params) {
     return json_encode(['success' => true]);
 }
 
+
+
+// helper function used on AdminServicesTabFields 
+function openpanelGetServerParams($params) {
+    $server = mysql_fetch_array(
+        select_query(
+            'tblservers',
+            '*',
+            ['id' => (int) $params['serverid']]
+        )
+    );
+
+    if (!$server) {
+        throw new Exception('Server not found');
+    }
+
+    return [
+        'serverhostname' => $server['hostname'],
+        'serverport'     => $server['port'],
+        'serverusername' => $server['username'],
+        'serverpassword' => $server['password'],
+    ];
+}
+
+function openpanel_AdminServicesTabFields($params) {
+    $fields = [];
+
+    try {
+        $serverParams = openpanelGetServerParams($params);
+        $apiParams = array_merge($params, $serverParams);
+
+        $token = getOpenPanelAuthToken($apiParams);
+        if (!$token) {
+            $fields['API Status'] = 'Authentication failed (admin)';
+            return $fields;
+        }
+
+        $response = apiRequest(
+            $apiParams,
+            '/api/users/' . $params['username'],
+            $token,
+            'GET'
+        );
+
+        if (empty($response['user'])) {
+            $fields['API Status'] = 'User not found';
+            return $fields;
+        }
+
+        $responseUser = $response['user'];
+
+        $user    = $responseUser['user'] ?? [];
+        $plan    = $responseUser['plan'] ?? [];
+        $domains = $responseUser['domains'] ?? [];
+        $sites   = $responseUser['sites'] ?? [];
+        $disk    = $responseUser['disk_usage'] ?? [];
+
+        /* =========================
+         * User info
+         * ========================= */
+        $fields['Account Email'] = htmlspecialchars($user['email'] ?? '—');
+        $fields['Owned by Reseller'] = !empty($user['owner'])
+            ? htmlspecialchars($user['owner'])
+            : '<span class="label label-default">No</span>';
+        $fields['2FA Enabled'] = !empty($user['twofa_enabled'])
+            ? '<span class="label label-success">Yes</span>'
+            : '<span class="label label-default">No</span>';
+        $fields['Registered'] = !empty($user['registered_date'])
+            ? date('Y-m-d H:i', strtotime($user['registered_date']))
+            : '—';
+        $fields['Server'] = htmlspecialchars($user['server'] ?? '—');
+
+        /* =========================
+         * Disk usage
+         * ========================= */
+        if (!empty($disk)) {
+            $fields['Disk Usage'] = '<table style="width:100%;border-collapse:collapse">'
+                . '<tr><td><b>Disk Hard Limit</b></td><td>' . htmlspecialchars($disk['disk_hard'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Disk Soft Limit</b></td><td>' . htmlspecialchars($disk['disk_soft'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Disk Used</b></td><td>' . htmlspecialchars($disk['disk_used'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Home Path</b></td><td>' . htmlspecialchars($disk['home_path'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Inodes Hard Limit</b></td><td>' . htmlspecialchars($disk['inodes_hard'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Inodes Soft Limit</b></td><td>' . htmlspecialchars($disk['inodes_soft'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Inodes Used</b></td><td>' . htmlspecialchars($disk['inodes_used'] ?? '—') . '</td></tr>'
+                . '</table>';
+        }
+
+        /* =========================
+         * Plan info
+         * ========================= */
+        if (!empty($plan)) {
+            $fields['Plan'] = '<table style="width:100%;border-collapse:collapse">'
+                . '<tr><td><b>Name</b></td><td>' . htmlspecialchars($plan['name'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Description</b></td><td>' . htmlspecialchars($plan['description'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Domains Limit</b></td><td>' . ($plan['domains_limit'] ?: '∞') . '</td></tr>'
+                . '<tr><td><b>Websites Limit</b></td><td>' . ($plan['websites_limit'] ?: '∞') . '</td></tr>'
+                . '<tr><td><b>Disk Limit</b></td><td>' . htmlspecialchars($plan['disk_limit'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>CPU</b></td><td>' . htmlspecialchars($plan['cpu'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>RAM</b></td><td>' . htmlspecialchars($plan['ram'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Bandwidth</b></td><td>' . htmlspecialchars($plan['bandwidth'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>DB Limit</b></td><td>' . htmlspecialchars($plan['db_limit'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Email Limit</b></td><td>' . htmlspecialchars($plan['email_limit'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>FTP Limit</b></td><td>' . htmlspecialchars($plan['ftp_limit'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Inodes Limit</b></td><td>' . htmlspecialchars($plan['inodes_limit'] ?? '—') . '</td></tr>'
+                . '<tr><td><b>Feature Set</b></td><td>' . htmlspecialchars($plan['feature_set'] ?? '—') . '</td></tr>'
+                . '</table>';
+        } else {
+            $fields['Plan'] = '—';
+        }
+
+        /* =========================
+         * Domains & Sites
+         * ========================= */
+        if (!empty($domains)) {
+            $domainHtml = '<ul style="margin:0;padding-left:18px">';
+            foreach ($domains as $domain) {
+                $domainHtml .= '<li>'
+                    . '<b>' . htmlspecialchars($domain['domain_url']) . '</b> '
+                    . '<small>(PHP ' . htmlspecialchars($domain['php_version'] ?? '—') . ')</small> '
+                    . '<br><small>Docroot: ' . htmlspecialchars($domain['docroot'] ?? '—') . '</small>';
+
+                $domainSites = array_filter($sites, fn($s) => ($s['domain_id'] ?? 0) == ($domain['domain_id'] ?? 0));
+                if (!empty($domainSites)) {
+                    $domainHtml .= '<ul style="margin:0;padding-left:18px">';
+                    foreach ($domainSites as $site) {
+                        $domainHtml .= '<li>'
+                            . htmlspecialchars($site['site_name'] ?? '—')
+                            . ' <small>(' . htmlspecialchars($site['type'] ?? '—')
+                            . (!empty($site['version']) ? ' ' . htmlspecialchars($site['version']) : '')
+                            . ', Admin: ' . htmlspecialchars($site['admin_email'] ?? '—')
+                            . ', Created: ' . (!empty($site['created_date']) ? date('Y-m-d H:i', strtotime($site['created_date'])) : '—')
+                            . ')</small>'
+                            . '</li>';
+                    }
+                    $domainHtml .= '</ul>';
+                }
+
+                $domainHtml .= '</li>';
+            }
+            $domainHtml .= '</ul>';
+            $fields['Domains & Sites (' . count($domains) . ')'] = $domainHtml;
+        } else {
+            $fields['Domains & Sites'] = 'None';
+        }
+
+    } catch (Exception $e) {
+        $fields['API Status'] = 'Error: ' . htmlspecialchars($e->getMessage());
+    }
+
+    return $fields;
+}
+
+
+
+
+
+
+
+
 ?>
