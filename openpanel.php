@@ -5,7 +5,7 @@
 # Source: https://github.com/stefanpejcic/openpanel-whmcs-module
 # Author: Stefan Pejcic
 # Created: 01.05.2024
-# Last Modified: 03.06.2025
+# Last Modified: 02.02.2026
 # Company: openpanel.com
 # Copyright (c) Stefan Pejcic
 #
@@ -33,18 +33,20 @@ if (!defined("WHMCS")) {
     die("This file cannot be accessed directly");
 }
 
+
+
 ############### CORE STUFF ##################
-# BASIC AUTH, SHOULD BE REUSED IN ALL ROUTES
+
+// get protocol
 function getApiProtocol($hostname) {
     return filter_var($hostname, FILTER_VALIDATE_IP) === false ? 'https://' : 'http://';
 }
 
-
+// https://dev.openpanel.com/openadmin-api/#Getting-started-with-the-API
 function getAuthToken($params) {
     $apiProtocol = getApiProtocol($params["serverhostname"]);
     $authEndpoint = $apiProtocol . $params["serverhostname"] . ':2087/api/';
 
-    // Prepare cURL request to authenticate
     $curl = curl_init();
     curl_setopt_array($curl, array(
         CURLOPT_URL => $authEndpoint,
@@ -59,100 +61,56 @@ function getAuthToken($params) {
         ),
     ));
 
-    // Execute cURL request to authenticate
     $response = curl_exec($curl);
 
-    // Check for errors
     if (curl_errno($curl)) {
         $token = false;
         $error = "cURL Error: " . curl_error($curl);
     } else {
-        // Decode the response JSON to get the token
         $responseData = json_decode($response, true);
         $token = isset($responseData['access_token']) ? $responseData['access_token'] : false;
         $error = $token ? null : "Token not found in response";
     }
 
-    // Close cURL session
     curl_close($curl);
 
     return array($token, $error);
 }
 
 
+// send api request
 function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
-    // Prepare cURL request
     $curl = curl_init();
 
-    // Set default cURL options
-    $options = array(
+    $headers = [
+        "Authorization: Bearer $token",
+        "Content-Type: application/json"
+    ];
+
+    $options = [
         CURLOPT_URL => $endpoint,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => array(
-            "Authorization: Bearer " . $token,
-            "Content-Type: application/json"
-        ),
-    );
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_CUSTOMREQUEST => strtoupper($method),
+    ];
 
-    // Handle different HTTP methods
-    switch ($method) {
-        case 'POST':
-            if ($data !== null) {
-                $options[CURLOPT_POST] = true;
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-            }
-            break;
-
-        case 'GET':
-            $options[CURLOPT_CUSTOMREQUEST] = 'GET';
-            break;
-
-        case 'PUT':
-            $options[CURLOPT_CUSTOMREQUEST] = 'PUT';
-            if ($data !== null) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-            }
-            break;
-
-        case 'CONNECT':
-            $options[CURLOPT_CUSTOMREQUEST] = 'CONNECT';
-            if ($data !== null) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-            }
-            break;
-
-        case 'PATCH':
-            $options[CURLOPT_CUSTOMREQUEST] = 'PATCH';
-            if ($data !== null) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-            }
-            break;
-
-        case 'DELETE':
-            $options[CURLOPT_CUSTOMREQUEST] = 'DELETE';
-            if ($data !== null) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-            }
-            break;
-
-        default:
-            // Handle unsupported methods
-            throw new InvalidArgumentException("Unsupported method: $method");
+    if ($data !== null) {
+        $options[CURLOPT_POSTFIELDS] = json_encode($data);
     }
 
-    // Set the options for the cURL request
     curl_setopt_array($curl, $options);
 
-    // Execute cURL request
     $response = curl_exec($curl);
 
-    // Decode the response JSON
-    $responseData = json_decode($response, true);
+    if ($response === false) {
+        $error = curl_error($curl);
+        curl_close($curl);
+        throw new Exception("cURL error: $error");
+    }
 
-    // Close cURL session
     curl_close($curl);
 
-    return $responseData;
+    return json_decode($response, true);
 }
 
 
@@ -165,10 +123,7 @@ function apiRequest($endpoint, $token, $data = null, $method = 'POST') {
 # CREATE ACCOUNT
 function openpanel_CreateAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
-
-    if (!$jwtToken) {
-        return $error; // Return the error message as a plain string
-    }
+    if (!$jwtToken) return $error;
 
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
@@ -214,10 +169,7 @@ function openpanel_CreateAccount($params) {
 # TERMINATE ACCOUNT
 function openpanel_TerminateAccount($params) {
     list($jwtToken, $error) = getAuthToken($params);
-
-    if (!$jwtToken) {
-        return $error; // Return the error message as a plain string
-    }
+    if (!$jwtToken) return $error;
 
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
@@ -283,10 +235,7 @@ function openpanel_TerminateAccount($params) {
 # CHANGE PASSWORD FOR ACCOUNT
 function openpanel_ChangePassword($params) {
     list($jwtToken, $error) = getAuthToken($params);
-
-    if (!$jwtToken) {
-        return $error; // Return the error message as a plain string
-    }
+    if (!$jwtToken) return $error;
 
     try {
         $apiProtocol = getApiProtocol($params["serverhostname"]);
