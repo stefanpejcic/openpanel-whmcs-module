@@ -28,9 +28,6 @@
 # THE SOFTWARE.
 ################################################################################
 
-
-# ======================================================================
-# Checks
 if (!defined("WHMCS")) {
     die("This file cannot be accessed directly");
 }
@@ -48,7 +45,6 @@ function openpanelLog($action, $params = [], $request = null, $response = null, 
 # ======================================================================
 # Helper Functions
 
-// get protocol + base URL
 function openpanelBaseUrl($params) {
     $protocol = filter_var($params['serverhostname'], FILTER_VALIDATE_IP) ? 'http://' : 'https://';
     $port = !empty($params['serverport']) ? $params['serverport'] : 2087;
@@ -56,8 +52,8 @@ function openpanelBaseUrl($params) {
 }
 
 /*
-send username and password to receive JWT token as `access_token`
-https://dev.openpanel.com/openadmin-api/#Getting-started-with-the-API
+    send username and password to receive JWT token as `access_token`
+    https://dev.openpanel.com/openadmin-api/#Getting-started-with-the-API
 */
 function getOpenPanelAuthToken($params) {
     $endpoint = openpanelBaseUrl($params) . '/api/';
@@ -112,10 +108,6 @@ function curl_exec_with_options(array $options) {
     return $response;
 }
 
-/*
-send OpenAdmin API request
-https://dev.openpanel.com/openadmin-api/#Endpoints-List
-*/
 function apiRequest($params, $uri, $token, $method = 'POST', $data = null) {
     try {
         $response = json_decode(
@@ -141,8 +133,8 @@ function apiRequest($params, $uri, $token, $method = 'POST', $data = null) {
 }
 
 /*
-run user actions
-https://dev.openpanel.com/openadmin-api/users.html
+    run user actions
+    https://dev.openpanel.com/openadmin-api/users.html
 */
 function openpanelUserAction($params, $method, $payload = null) {
 
@@ -162,87 +154,6 @@ function openpanelUserAction($params, $method, $payload = null) {
     return ($response['success'] ?? false)
         ? 'success'
         : ($response['error'] ?? 'Unknown error');
-}
-
-
-
-# ======================================================================
-# Main Functions
-
-/*
-CREATE ACCOUNT
-https://dev.openpanel.com/openadmin-api/users.html#Create-account
-*/
-function openpanel_CreateAccount($params) {
-    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
-
-    $product = mysql_fetch_array(
-        select_query('tblproducts', 'name', ['id' => $params['pid']])
-    );
-
-    // 1. create user
-    $createUserResponse = openpanelUserAction($params, 'POST', [
-        'username'  => $params['username'],
-        'password'  => $params['password'],
-        'email'     => $params['clientsdetails']['email'],
-        'plan_name' => $product['name'],
-    ]);
-
-    if ($createUserResponse !== 'success') {
-        return 'Failed to create user: ' . $createUserResponse;
-    }
-
-    // 2. add the domain
-    if (!empty($params['domain'])) {
-        $domainData = [
-            'username' => $params['username'],
-            'domain'   => $params['domain'],
-            'docroot'  => $params['docroot'] ?? '/var/www/html/' . $params['domain']
-        ];
-
-        $domainResponse = apiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
-        if (isset($domainResponse['error'])) {
-            return 'User created, but failed to add domain: ' . $domainResponse['error'];
-        }
-    }
-
-    return 'success';
-}
-
-
-// SUSPEND ACCOUNT
-function openpanel_SuspendAccount($params) {
-    return openpanelUserAction($params, 'PATCH', ['action' => 'suspend']);
-}
-
-// UNSUSPEND ACCOUNT
-function openpanel_UnsuspendAccount($params) {
-    return openpanelUserAction($params, 'PATCH', ['action' => 'unsuspend']);
-}
-
-
-// CHANGE PASSWORD
-function openpanel_ChangePassword($params) {
-    return openpanelUserAction($params, 'PATCH', [
-        'password' => $params['password']
-    ]);
-}
-
-// TERMINATE ACCOUNT
-function openpanel_TerminateAccount($params) {
-    openpanelUserAction($params, 'PATCH', ['action' => 'unsuspend']);
-    return openpanelUserAction($params, 'DELETE');
-}
-
-// CHANGE PACKAGE
-function openpanel_ChangePackage($params) {
-    $product = mysql_fetch_array(
-        select_query('tblproducts', 'name', ['id' => $params['pid']])
-    );
-
-    return openpanelUserAction($params, 'PUT', [
-        'plan_name' => $product['name']
-    ]);
 }
 
 // GENERATE LOGIN LINK
@@ -281,7 +192,129 @@ function loginOpenPanelButton() {
 </p>';
 }
 
-// CLIENT AREA
+// helper function used on AdminServicesTabFields 
+function openpanelGetServerParams($params) {
+    $server = mysql_fetch_array(
+        select_query(
+            'tblservers',
+            '*',
+            ['id' => (int) $params['serverid']]
+        )
+    );
+
+    if (!$server) {
+        throw new Exception('Server not found');
+    }
+
+    return [
+        'serverhostname' => $server['hostname'],
+        'serverport'     => $server['port'],
+        'serverusername' => $server['username'],
+        'serverpassword' => $server['password'],
+    ];
+}
+
+
+
+
+# ======================================================================
+# Functions
+
+/*
+    CREATE ACCOUNT
+    https://dev.openpanel.com/openadmin-api/users.html#Create-account
+*/
+function openpanel_CreateAccount($params) {
+    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
+
+    $product = mysql_fetch_array(
+        select_query('tblproducts', 'name', ['id' => $params['pid']])
+    );
+
+    // 1. create user
+    $createUserResponse = openpanelUserAction($params, 'POST', [
+        'username'  => $params['username'],
+        'password'  => $params['password'],
+        'email'     => $params['clientsdetails']['email'],
+        'plan_name' => $product['name'],
+    ]);
+
+    if ($createUserResponse !== 'success') {
+        return 'Failed to create user: ' . $createUserResponse;
+    }
+
+    // 2. add the domain
+    if (!empty($params['domain'])) {
+        $domainData = [
+            'username' => $params['username'],
+            'domain'   => $params['domain'],
+            'docroot'  => $params['docroot'] ?? '/var/www/html/' . $params['domain']
+        ];
+
+        $domainResponse = apiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
+        if (isset($domainResponse['error'])) {
+            return 'User created, but failed to add domain: ' . $domainResponse['error'];
+        }
+    }
+
+    return 'success';
+}
+
+
+/*
+    SUSPEND ACCOUNT
+    https://dev.openpanel.com/openadmin-api/users.html#Suspend-account
+*/
+function openpanel_SuspendAccount($params) {
+    return openpanelUserAction($params, 'PATCH', ['action' => 'suspend']);
+}
+
+/*
+    UNSUSPEND ACCOUNT
+    https://dev.openpanel.com/openadmin-api/users.html#Unsuspend-account
+*/
+function openpanel_UnsuspendAccount($params) {
+    return openpanelUserAction($params, 'PATCH', ['action' => 'unsuspend']);
+}
+
+
+/*
+    CHANGE PASSWORD
+    https://dev.openpanel.com/openadmin-api/users.html#Change-password
+*/
+function openpanel_ChangePassword($params) {
+    return openpanelUserAction($params, 'PATCH', [
+        'password' => $params['password']
+    ]);
+}
+
+/*
+    TERMINATE ACCOUNT
+    https://dev.openpanel.com/openadmin-api/users.html#Delete-account
+*/
+function openpanel_TerminateAccount($params) {
+    openpanelUserAction($params, 'PATCH', ['action' => 'unsuspend']);
+    return openpanelUserAction($params, 'DELETE');
+}
+
+/*
+    CHANGE PACKAGE
+    https://dev.openpanel.com/openadmin-api/users.html#Change-plan
+*/
+function openpanel_ChangePackage($params) {
+    $product = mysql_fetch_array(
+        select_query('tblproducts', 'name', ['id' => $params['pid']])
+    );
+
+    return openpanelUserAction($params, 'PUT', [
+        'plan_name' => $product['name']
+    ]);
+}
+
+/* 
+    CLIENT AREA - Currently just shows autologin link
+    https://dev.openpanel.com/openadmin-api/users.html#Autologin
+*/
 function openpanel_ClientArea($params) {
     list($link, $error) = openpanelGenerateLoginLink($params);
 
@@ -289,6 +322,10 @@ function openpanel_ClientArea($params) {
         ? openpanelLoginButtonHtml($link)
         : '<p>Error generating autologin link: ' . htmlentities($error) . '</p>';
 }
+
+
+#------------------------------------------------------
+
 
 
 // ADMIN LINK
@@ -303,7 +340,8 @@ function openpanel_AdminLink($params) {
 </form>';
 }
 
-// LOGIN LINK
+
+// LOGIN LINK DISPLAYED ON ADMIN AREA
 function openpanel_LoginLink($params) {
     return openpanel_ClientArea($params);
 }
@@ -397,31 +435,10 @@ function openpanel_UsageUpdate($params) {
     return json_encode(['success' => true]);
 }
 
-
-
-// helper function used on AdminServicesTabFields 
-function openpanelGetServerParams($params) {
-    $server = mysql_fetch_array(
-        select_query(
-            'tblservers',
-            '*',
-            ['id' => (int) $params['serverid']]
-        )
-    );
-
-    if (!$server) {
-        throw new Exception('Server not found');
-    }
-
-    return [
-        'serverhostname' => $server['hostname'],
-        'serverport'     => $server['port'],
-        'serverusername' => $server['username'],
-        'serverpassword' => $server['password'],
-    ];
-}
-
-
+/*
+    SERVICES IN ADMIN AREA
+    https://dev.openpanel.com/openadmin-api/users.html#List-single-account
+*/
 function openpanel_AdminServicesTabFields($params) {
     $fields = [];
 
@@ -572,7 +589,5 @@ function openpanel_AdminServicesTabFields($params) {
 
     return $fields;
 }
-
-
 
 ?>
