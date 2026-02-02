@@ -43,7 +43,7 @@ function openpanelLog($action, $params = [], $request = null, $response = null, 
 
 
 # ======================================================================
-# Helper Functions
+# START Helpers
 
 function openpanelBaseUrl($params) {
     $protocol = filter_var($params['serverhostname'], FILTER_VALIDATE_IP) ? 'http://' : 'https://';
@@ -207,10 +207,9 @@ function openpanelGetServerParams($params) {
 }
 
 
-
-
+# END Helpers
 # ======================================================================
-# Functions
+# START Client Area Functions
 
 /*
     CREATE ACCOUNT
@@ -316,8 +315,10 @@ function openpanel_ClientArea($params) {
 }
 
 
-#------------------------------------------------------
 
+# END Client Area Functions
+# ======================================================================
+# START Admin Area Functions
 
 
 // ADMIN LINK
@@ -444,117 +445,33 @@ function openpanel_AdminServicesTabFields($params) {
         $sites   = $responseUser['sites'] ?? [];
         $disk    = $responseUser['disk_usage'] ?? [];
 
-        $html = '<div class="">';
-
-        // ----------- Disk Usage Panel -----------
-        if (!empty($disk)) {
-            $html .= '<div class="panel panel-default">';
-            $html .= '<div class="panel-heading"><strong>Storage</strong></div>';
-            $html .= '<div class="panel-body">';
-
-            $diskItems = [
-                ['label' => 'Disk Used', 'value' => $disk['disk_used'] ?? 0, 'max' => $disk['disk_hard'] ?? 1],
-                ['label' => 'Inodes Used', 'value' => $disk['inodes_used'] ?? 0, 'max' => $disk['inodes_hard'] ?? 1],
-            ];
-
-            foreach ($diskItems as $item) {
-                $percent = ($item['max'] > 0) ? round(($item['value'] / $item['max']) * 100, 2) : 0;
-                $html .= '<div class="mb-2">';
-                $html .= '<div class="text-muted">' . htmlspecialchars($item['label']) . ' <span class="pull-right">' . htmlspecialchars($item['value']) . ' / ' . htmlspecialchars($item['max']) . ' (' . $percent . '%)</span></div>';
-                $html .= '<div class="progress">';
-                $html .= '<div class="progress-bar" role="progressbar" style="width: ' . $percent . '%;">' . $percent . '%</div>';
-                $html .= '</div>';
-                $html .= '</div>';
-            }
-
-            $html .= '</div></div>'; // panel-body + panel
+        // Prepare disk items for template
+        $diskItems = [];
+        foreach (['disk_used'=>'Disk Used','inodes_used'=>'Inodes Used'] as $key => $label) {
+            $value = $disk[$key] ?? 0;
+            $max = $disk[str_replace('_used','_hard',$key)] ?? 1;
+            $percent = ($max > 0) ? round(($value / $max) * 100, 2) : 0;
+            $diskItems[] = ['label'=>$label, 'value'=>$value, 'max'=>$max, 'percent'=>$percent];
         }
 
-        // ----------- Domains & Sites Panel -----------
+        // Map domain sites
+        $domainSites = [];
+        foreach ($domains as $domain) {
+            $domainSites[$domain['domain_id']] = array_filter($sites, fn($s) => ($s['domain_id'] ?? 0) == ($domain['domain_id'] ?? 0));
+        }
+
+        $planFields = [
+            'name'=>'Name','description'=>'Description','domains_limit'=>'Domains Limit','websites_limit'=>'Websites Limit',
+            'cpu'=>'CPU','ram'=>'RAM','bandwidth'=>'Bandwidth','db_limit'=>'Database Limit',
+            'email_limit'=>'Email Limit','ftp_limit'=>'FTP Limit','feature_set'=>'Feature Set'
+        ];
+
+        $smarty = new \Smarty();
+        $smarty->assign(compact('disk', 'diskItems', 'domains', 'domainSites', 'totalDomains', 'totalSites', 'plan', 'planFields', 'user'));
         $totalDomains = count($domains);
         $totalSites = count($sites);
-        $html .= '<div class="panel panel-default">';
-        $html .= '<div class="panel-heading"><strong>Domains</strong> ';
-        $html .= '<span class="text-muted">(Total Domains: ' . $totalDomains . ', Total Sites: ' . $totalSites . ')</span></div>';
-        $html .= '<div class="panel-body">';
-        if (!empty($domains)) {
-            foreach ($domains as $domain) {
-                $html .= '<div class="border rounded p-2 mb-2">';
-                $html .= '<div class="fw-bold">' . htmlspecialchars($domain['domain_url']) . '</div>';
-                $html .= '<div class="text-muted small">PHP: ' . htmlspecialchars($domain['php_version'] ?? '—') . ', Docroot: ' . htmlspecialchars($domain['docroot'] ?? '—') . '</div>';
-                $domainSites = array_filter($sites, fn($s) => ($s['domain_id'] ?? 0) == ($domain['domain_id'] ?? 0));
-                if (!empty($domainSites)) {
-                    $html .= '<ul class="small mb-0">';
-                    foreach ($domainSites as $site) {
-                        $html .= '<li>' . htmlspecialchars($site['site_name'] ?? '—') . ' (' . htmlspecialchars($site['type'] ?? '—') . ', Admin: ' . htmlspecialchars($site['admin_email'] ?? '—') . ', Created: ' . (!empty($site['created_date']) ? date('Y-m-d', strtotime($site['created_date'])) : '—') . ')</li>';
-                    }
-                    $html .= '</ul>';
-                }
-                $html .= '</div>';
-            }
-        } else {
-            $html .= '<span class="text-muted">None</span>';
-        }
-        $html .= '</div></div>'; // panel-body + panel
 
-        // ----------- Plan Info Panel -----------
-        $html .= '<div class="panel panel-default">';
-        $html .= '<div class="panel-heading"><strong>Plan Limits</strong></div>';
-        $html .= '<div class="panel-body">';
-        if (!empty($plan)) {
-            $html .= '<table class="table table-sm table-bordered mb-0">';
-            $html .= '<tbody>';
-        
-            // map of plan keys to display labels
-            $plan_fields = [
-                //'id' => 'Plan ID',
-                'name' => 'Name',
-                'description' => 'Description',
-                'domains_limit' => 'Domains Limit',
-                'websites_limit' => 'Websites Limit',
-                //'disk_limit' => 'Disk Limit',
-                //'inodes_limit' => 'Inodes Limit'
-                'cpu' => 'CPU',
-                'ram' => 'RAM',
-                'bandwidth' => 'Bandwidth',
-                'db_limit' => 'Database Limit',
-                'email_limit' => 'Email Limit',
-                'ftp_limit' => 'FTP Limit',
-                'feature_set' => 'Feature Set'
-            ];
-        
-            foreach ($plan_fields as $key => $label) {
-                $value = $plan[$key] ?? '—';
-                // show ∞ for unlimited values
-                if (in_array($key, ['domains_limit', 'websites_limit', 'db_limit', 'email_limit', 'ftp_limit']) && !$value) {
-                    $value = '∞';
-                }
-                $html .= '<tr><th>'.$label.'</th><td>'.htmlspecialchars($value).'</td></tr>';
-            }
-        
-            $html .= '</tbody></table>';
-        } else {
-            $html .= '<span class="text-muted">—</span>';
-        }
-        $html .= '</div></div>'; // panel-body + panel
-
-        // ----------- User Info Panel -----------
-        $html .= '<div class="panel panel-default">';
-        $html .= '<div class="panel-heading"><strong>Account Information</strong></div>';
-        $html .= '<div class="panel-body">';
-        $html .= '<table class="table table-sm table-bordered mb-0">';
-        $html .= '<tbody>';
-        $html .= '<tr><th>Email</th><td>' . htmlspecialchars($user['email'] ?? '—') . '</td></tr>';
-        $html .= '<tr><th>Docker context</th><td>' . htmlspecialchars($user['server'] ?? '—') . '</td></tr>';
-        $html .= '<tr><th>Owned by Reseller</th><td>' . (!empty($user['owner']) ? htmlspecialchars($user['owner']) : '<span class="text-muted">No</span>') . '</td></tr>';
-        $html .= '<tr><th>2FA Enabled</th><td>' . (!empty($user['twofa_enabled']) ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>') . '</td></tr>';
-        $html .= '<tr><th>OpenPanel account created</th><td>' . (!empty($user['registered_date']) ? date('Y-m-d H:i', strtotime($user['registered_date'])) : '—') . '</td></tr>';
-        $html .= '</tbody></table>';
-        $html .= '</div></div>'; // panel-body + panel
-
-        $html .= '</div>'; // container-fluid
-
-        $fields['OpenPanel Account Information'] = $html;
+        $fields['OpenPanel Account Information'] = $smarty->fetch(__DIR__ . '/templates/admin_services_tab.tpl');
 
     } catch (Exception $e) {
         $fields['OpenPanel Account Information'] = '<span class="badge bg-danger">Error: ' . htmlspecialchars($e->getMessage()) . '</span>';
@@ -562,5 +479,8 @@ function openpanel_AdminServicesTabFields($params) {
 
     return $fields;
 }
+
+# END Admin Area Functions
+# ======================================================================
 
 ?>
