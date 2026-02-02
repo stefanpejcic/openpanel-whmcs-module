@@ -55,7 +55,10 @@ function openpanelBaseUrl($params) {
     return $protocol . $params['serverhostname'] . ':' . $port;
 }
 
-// fetch token
+/*
+send username and password to receive JWT token as `access_token`
+https://dev.openpanel.com/openadmin-api/#Getting-started-with-the-API
+*/
 function getOpenPanelAuthToken($params) {
     $endpoint = openpanelBaseUrl($params) . '/api/';
     $password = $params['serverpassword'] ?? '';
@@ -109,7 +112,10 @@ function curl_exec_with_options(array $options) {
     return $response;
 }
 
-// API request
+/*
+send OpenAdmin API request
+https://dev.openpanel.com/openadmin-api/#Endpoints-List
+*/
 function apiRequest($params, $uri, $token, $method = 'POST', $data = null) {
     try {
         $response = json_decode(
@@ -134,9 +140,11 @@ function apiRequest($params, $uri, $token, $method = 'POST', $data = null) {
     }
 }
 
-// run action
+/*
+run user actions
+https://dev.openpanel.com/openadmin-api/users.html
+*/
 function openpanelUserAction($params, $method, $payload = null) {
-
 
     if (empty($params['serverhostname']) || empty($params['serverusername']) || empty($params['serverpassword'])) {
         try {
@@ -147,17 +155,9 @@ function openpanelUserAction($params, $method, $payload = null) {
         }
     }
 
-    
-    $token = getOpenPanelAuthToken($params);
-    if (!$token) return 'Authentication failed';
+    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
 
-    $response = apiRequest(
-        $params,
-        '/api/users/' . $params['username'],
-        $token,
-        $method,
-        $payload
-    );
+    $response = apiRequest($params,'/api/users/' . $params['username'],$token,$method,$payload);
 
     return ($response['success'] ?? false)
         ? 'success'
@@ -169,10 +169,12 @@ function openpanelUserAction($params, $method, $payload = null) {
 # ======================================================================
 # Main Functions
 
-// CREATE ACCOUNT
+/*
+CREATE ACCOUNT
+https://dev.openpanel.com/openadmin-api/users.html#Create-account
+*/
 function openpanel_CreateAccount($params) {
-    $token = getOpenPanelAuthToken($params);
-    if (!$token) return 'Authentication failed';
+    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';
 
     $product = mysql_fetch_array(
         select_query('tblproducts', 'name', ['id' => $params['pid']])
@@ -311,10 +313,7 @@ function openpanel_LoginLink($params) {
 
 // AVAILABLE PLANS
 function getAvailablePlans($params) {
-    $token = getOpenPanelAuthToken($params);
-    if (!$token) {
-        return 'Authentication failed';
-    }
+    if (!$token = getOpenPanelAuthToken($params)) return 'Authentication failed';  
 
     $response = apiRequest(
         $params,
@@ -425,6 +424,7 @@ function openpanelGetServerParams($params) {
     ];
 }
 
+
 function openpanel_AdminServicesTabFields($params) {
     $fields = [];
 
@@ -457,7 +457,6 @@ function openpanel_AdminServicesTabFields($params) {
         $sites   = $responseUser['sites'] ?? [];
         $disk    = $responseUser['disk_usage'] ?? [];
 
-        // Start Bootstrap container
         $html = '<div class="">';
 
         // ----------- Disk Usage Panel -----------
