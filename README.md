@@ -1,13 +1,19 @@
 # OpenPanel WHMCS Module 😎
 WHMCS module for [OpenPanel](https://openpanel.com)
 
+![screenshot](/screenshots/account_manage.png)
 
-## Requirements
+---
+
+
+## Usage
+
+### Requirements
 
 - Server with OpenPanel Enterprise license
 - WHMCS
 
-## Installation
+### Installation
 
 1. Login to SSH for WHMCS server
 2. Navigate to `path_to_whmcs/modules/servers`
@@ -16,7 +22,7 @@ WHMCS module for [OpenPanel](https://openpanel.com)
    git clone https://github.com/stefanpejcic/openpanel-whmcs-module.git openpanel
    ```
 
-## Supported Operations
+### Supported Operations
 - Create a new user account
 - Auto-login for user
 - Suspend account
@@ -24,12 +30,14 @@ WHMCS module for [OpenPanel](https://openpanel.com)
 - Change package
 - Change password
 - Terminate account
+- Auto-login for admin
+- View user information as admin
 
-## Configuration
+### Configuration
 
 How to setup WHMCS and OpenPanel: https://openpanel.com/docs/articles/extensions/openpanel-and-whmcs/
 
-##  Troubleshooting
+###  Troubleshooting
 
 On WHMCS:
 1. set OPENPANEL_DEBUG to `true`
@@ -43,7 +51,7 @@ On OpenPanel server:
 3. View the logs in: `/var/log/openpanel/admin/api.log`
 
 
-## Update
+### Update
 
 1. Login to SSH for WHMCS server
 2. Navigate to `path_to_whmcs/modules/servers/openpanel`
