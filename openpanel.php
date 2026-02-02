@@ -425,7 +425,7 @@ function openpanel_AdminServicesTabFields($params) {
         );
 
         if (empty($response['user'])) {
-            $fields['OpenPanel Account Information'] = '<span class="badge bg-warning">User not found on this server</span>';
+            $fields['OpenPanel Account Information'] = '<span class="badge bg-warning">User does not exist on this OpenPanel server</span>';
             return $fields;
         }
 
