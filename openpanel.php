@@ -178,12 +178,33 @@ function openpanel_CreateAccount($params) {
         select_query('tblproducts', 'name', ['id' => $params['pid']])
     );
 
-    return openpanelUserAction($params, 'POST', [
-        'username' => $params['username'],
-        'password' => $params['password'],
-        'email'    => $params['clientsdetails']['email'],
+    // 1. create user
+    $createUserResponse = openpanelUserAction($params, 'POST', [
+        'username'  => $params['username'],
+        'password'  => $params['password'],
+        'email'     => $params['clientsdetails']['email'],
         'plan_name' => $product['name'],
     ]);
+
+    if ($createUserResponse !== 'success') {
+        return 'Failed to create user: ' . $createUserResponse;
+    }
+
+    // 2. add the domain
+    if (!empty($params['domain'])) {
+        $domainData = [
+            'username' => $params['username'],
+            'domain'   => $params['domain'],
+            'docroot'  => $params['docroot'] ?? '/var/www/html/' . $params['domain']
+        ];
+
+        $domainResponse = apiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
+        if (isset($domainResponse['error'])) {
+            return 'User created, but failed to add domain: ' . $domainResponse['error'];
+        }
+    }
+
+    return 'success';
 }
 
 
