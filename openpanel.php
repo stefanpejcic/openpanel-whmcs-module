@@ -131,17 +131,6 @@ function openpanelApiRequest($params, $uri, $token, $method = 'POST', $data = nu
     }
 }
 
-function openpanelValidateServerType($params) {
-    $server = mysql_fetch_array(
-        select_query('tblservers', 'type', [
-            'hostname' => $params['serverhostname'],
-            'disabled' => 0,
-        ])
-    );
-    return $server && $server['type'] === 'openpanel';
-}
-
-
 /*
     run user actions
 */
