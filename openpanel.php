@@ -5,7 +5,7 @@
 # Source: https://github.com/stefanpejcic/openpanel-whmcs-module
 # Author: Stefan Pejcic
 # Created: 01.05.2024
-# Last Modified: 03.06.2026
+# Last Modified: 10.09.2026
 # Company: openpanel.com
 # Copyright (c) Stefan Pejcic
 #
@@ -181,7 +181,40 @@ function openpanelGenerateLoginLink($params) {
         : [null, $response['message'] ?? 'Unable to generate login link'];
 }
 
-function openpanelLoginButtonHtml($link) {
+/*
+    send admin/reseller server credentials to /api/login to get a one-time
+    SSO link, instead of auto-submitting them as a cross-origin POST to
+    /login -- that form POST hits OpenAdmin's CSRF check (Origin: null on
+    an auto-submit form), see openpanel-whmcs-module#7
+*/
+function openpanelGenerateAdminLoginLink($params) {
+    $endpoint = openpanelBaseUrl($params) . '/api/login';
+    $password = $params['serverpassword'] ?? '';
+    $decrypted = @decrypt($password);
+    $passwordToUse = $decrypted ?: $password;
+
+    $postData = [
+        'username' => $params['serverusername'] ?? '',
+        'password' => $passwordToUse,
+    ];
+
+    $response = json_decode(
+        openpanel_exec_curl_with_options([
+            CURLOPT_URL => $endpoint,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($postData),
+        ]),
+        true
+    );
+
+    openpanelLog('API /api/login', $params, $postData, $response);
+
+    return isset($response['login_path'])
+        ? [openpanelBaseUrl($params) . $response['login_path'], null]
+        : [null, $response['message'] ?? $response['error'] ?? 'Unable to generate login link'];
+}
+
+function openpanelLoginButtonHtml($link, $label = 'Login to OpenPanel') {
     return '
 <script>
 function loginOpenPanelButton() {
@@ -190,7 +223,7 @@ function loginOpenPanelButton() {
     document.getElementById("loginLink").style.display = "none";
 }
 </script>
-<a id="loginLink" class="btn btn-primary"  style="display:block;" href="' . htmlspecialchars($link) . '" target="_blank" onclick="loginOpenPanelButton()">Login to OpenPanel</a>
+<a id="loginLink" class="btn btn-primary"  style="display:block;" href="' . htmlspecialchars($link) . '" target="_blank" onclick="loginOpenPanelButton()">' . htmlspecialchars($label) . '</a>
 <p id="refreshMessage" style="display:none;">One-time login link has already been used, please refresh the page to login again.</p>';
 }
 
@@ -326,14 +359,11 @@ function openpanel_ClientArea($params) {
 
 // ADMIN LINK
 function openpanel_AdminLink($params) {
-    $url = openpanelBaseUrl($params) . '/login';
+    list($link, $error) = openpanelGenerateAdminLoginLink($params);
 
-    return '
-<form action="' . $url . '" method="post" target="_blank">
-    <input type="hidden" name="username" value="' . htmlspecialchars($params['serverusername']) . '">
-    <input type="hidden" name="password" value="' . htmlspecialchars($params['serverpassword']) . '">
-    <input type="submit" value="Login to OpenAdmin">
-</form>';
+    return $link
+        ? openpanelLoginButtonHtml($link, 'Login to OpenAdmin')
+        : '<p>Error generating admin login link: ' . htmlentities($error) . '</p>';
 }
 
 
