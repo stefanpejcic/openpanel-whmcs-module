@@ -181,12 +181,7 @@ function openpanelGenerateLoginLink($params) {
         : [null, $response['message'] ?? 'Unable to generate login link'];
 }
 
-/*
-    send admin/reseller server credentials to /api/login to get a one-time
-    SSO link, instead of auto-submitting them as a cross-origin POST to
-    /login -- that form POST hits OpenAdmin's CSRF check (Origin: null on
-    an auto-submit form), see openpanel-whmcs-module#7
-*/
+// https://github.com/stefanpejcic/openpanel-whmcs-module/issues/7
 function openpanelGenerateAdminLoginLink($params) {
     $endpoint = openpanelBaseUrl($params) . '/api/login';
     $password = $params['serverpassword'] ?? '';
