@@ -173,12 +173,13 @@ function openpanelUserAction($params, $method, $payload = null) {
 }
 
 // GENERATE LOGIN LINK
+// https://github.com/stefanpejcic/openpanel-whmcs-module/issues/8
 function openpanelGenerateLoginLink($params) {
     if (!$token = openpanelGetAuthToken($params)) return 'Authentication failed';
-    $response = openpanelApiRequest($params, '/api/users/' . $params['username'], $token, 'CONNECT');
+    $response = openpanelApiRequest($params, '/api/users/' . $params['username'] . '/autologin', $token, 'POST');
     return isset($response['link'])
         ? [$response['link'], null]
-        : [null, $response['message'] ?? 'Unable to generate login link'];
+        : [null, $response['message'] ?? $response['error'] ?? 'Unable to generate login link'];
 }
 
 // https://github.com/stefanpejcic/openpanel-whmcs-module/issues/7
