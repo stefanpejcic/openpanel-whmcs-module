@@ -281,8 +281,8 @@ function openpanel_CreateAccount($params) {
         ];
 
         $domainResponse = openpanelApiRequest($params, '/api/domains/new', $token, 'POST', $domainData);
-        if (isset($domainResponse['error'])) {
-            return 'User created, but failed to add domain: ' . $domainResponse['error'];
+        if (($domainResponse['returncode'] ?? 1) !== 0) {
+            return 'User created, but failed to add domain: ' . trim($domainResponse['stderr'] ?? 'Unknown error');
         }
     }
 
@@ -455,8 +455,8 @@ function openpanel_UsageUpdate($params) {
     $usage = openpanelApiRequest($params, '/api/usage/disk', $token, 'GET');
     foreach ($usage as $user => $values) {
         update_query('tblhosting', [
-            'diskusage' => $values['disk_usage'],
-            'disklimit' => $values['disk_limit'],
+            'diskusage' => $values['diskusage'],
+            'disklimit' => $values['disklimit'],
             'lastupdate' => 'now()',
         ], [
             'server' => $params['serverid'],
@@ -514,7 +514,7 @@ function openpanel_AdminServicesTabFields($params) {
         $planFields = [
             'name'=>'Name','description'=>'Description','domains_limit'=>'Domains Limit','websites_limit'=>'Websites Limit',
             'cpu'=>'CPU','ram'=>'RAM','bandwidth'=>'Bandwidth','db_limit'=>'Database Limit',
-            'email_limit'=>'Email Limit','max_email_quota'=>'Max Email Quota','max_hourly_email'=>'Max Hourly Emails','ftp_limit'=>'FTP Limit','feature_set'=>'Feature Set'
+            'email_limit'=>'Email Limit','ftp_limit'=>'FTP Limit','feature_set'=>'Feature Set'
         ];
 
         $smarty = new \Smarty();
