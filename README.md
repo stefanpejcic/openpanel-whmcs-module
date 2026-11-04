@@ -1,6 +1,8 @@
 # OpenPanel WHMCS Module 😎
 WHMCS module for [OpenPanel](https://openpanel.com)
 
+> **Using WHMCS 9?** Install the module from the [`WHMCS-9`](WHMCS-9/) folder instead, see [WHMCS-9/README.md](WHMCS-9/README.md).
+
 ![screenshot](/screenshots/account_manage.png)
 
 ---

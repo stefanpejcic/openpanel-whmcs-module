@@ -1,0 +1,27 @@
+{
+  "schema": "1.0",
+  "type": "whmcs-servers",
+  "name": "OpenPanel",
+  "license": "proprietary",
+  "category": "provisioning",
+  "description": {
+    "name": "OpenPanel",
+    "tagline": "Next Generation Hosting Panel.",
+    "long": "Provision and manage OpenPanel accounts from WHMCS 9: create, suspend, unsuspend, terminate, change plan and password, single sign-on to OpenPanel and OpenAdmin, and daily disk usage import.",
+    "features": [
+      "Account provisioning with plan selection from the server",
+      "Single sign-on for clients and admins",
+      "Daily disk usage import"
+    ]
+  },
+  "support": {
+    "homepage": "https://openpanel.com/",
+    "docs_url": "https://openpanel.com/docs/articles/dev-experience/openadmin-api/"
+  },
+  "authors": [
+    {
+      "name": "OPENPANEL",
+      "homepage": "https:\/\/openpanel.com\/"
+    }
+  ]
+}
