@@ -1,7 +1,6 @@
-# OpenPanel WHMCS Module for WHMCS 9
+# OpenPanel WHMCS Module
 
-Provisioning module for [OpenPanel](https://openpanel.com), rewritten for WHMCS 9.x.
-It is based on the v1 module in the root of this repository.
+Provisioning module for [OpenPanel](https://openpanel.com)
 
 ![The OpenPanel Account panel on a service in the WHMCS 9 admin area](screenshots/account_manage.png)
 
@@ -60,8 +59,7 @@ modules/servers/openpanel/
 ## Updating
 
 ```bash
-cd ~/openpanel-whmcs-module && git pull
-cp -r WHMCS-9/. path_to_whmcs/modules/servers/openpanel/
+cd path_to_whmcs/modules/servers/openpanel/ && git pull
 ```
 
 ## Troubleshooting
