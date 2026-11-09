@@ -33,6 +33,7 @@ modules/servers/openpanel/
 ├── lib/ApiException.php
 ├── templates/clientarea.tpl      client area "Log in to OpenPanel" button
 ├── templates/admin_services_tab.php
+├── templates/admin_services_tab_reseller.php
 └── whmcs.json
 ```
 
@@ -45,6 +46,32 @@ modules/servers/openpanel/
 | Service, admin area | Create (user and domain), Suspend, Unsuspend, Terminate, Change Package, Change Password, **Log in to OpenPanel**, and an account panel showing storage, domains, sites, plan limits and status |
 | Service, client area | **Log in to OpenPanel**, Change Password |
 | Daily cron | Disk usage import into WHMCS (`diskusage`/`disklimit`, in MB) |
+| Reseller products | See [Selling reseller accounts](#selling-reseller-accounts) |
+
+## Selling reseller accounts
+
+The same module provisions OpenAdmin resellers. Resellers need OpenPanel Enterprise, and must be turned on in OpenAdmin under **Accounts > Resellers**.
+
+1. In OpenAdmin, create reseller packages under **Hosting plans > Reseller packages**. A package sets the maximum number of accounts, disk space, and which user plans the reseller can use.
+2. In WHMCS, create a product with **Product Type: Reseller Account**. On **Module Settings**, pick the server group and choose the **Reseller Package**. **OpenPanel Plan** is not used for reseller products.
+3. Tick **Delete reseller's accounts on terminate** if terminating the service should also delete every account the reseller created. When it's unticked, those accounts move to the OpenAdmin administrator and keep running.
+
+| WHMCS action | OpenAdmin |
+|---|---|
+| Create | Creates the reseller on the chosen package. Usernames must be 5-30 characters (letters, numbers, `_`), passwords 6-30 characters without spaces. |
+| Suspend | Suspends the reseller and every active account they own. |
+| Unsuspend | Unsuspends the reseller and only the accounts suspended along with them, so accounts the reseller suspended themselves stay suspended. |
+| Terminate | Deletes the reseller. Their accounts move to the administrator, or are deleted when the product option is ticked. |
+| Change Package | Moves the reseller to the product's package. OpenAdmin refuses a downgrade below what the reseller already uses. |
+| Change Password | Changes the reseller's OpenAdmin password. |
+| Log in | Opens OpenAdmin logged in as the reseller, also for clients in the client area. |
+| Daily cron | Imports the reseller's total disk usage and limit. |
+
+The admin service page shows the reseller's package, account and disk usage, and status.
+
+### Resellers selling with their own WHMCS
+
+A reseller can install this module in their own WHMCS and add the server with **their own** OpenAdmin username and password. Accounts they create there are owned by them and count against their package, they only see the plans assigned to them, and the daily usage import only returns their accounts.
 
 ## Upgrading from v1
 

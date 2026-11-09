@@ -74,7 +74,35 @@ function openpanel_ConfigOptions()
             'SimpleMode' => true,
             'Description' => 'Plan to create accounts on. If empty, the plan with the same name as this product is used.',
         ],
+        // configoption2 and 3 are only used when the product type is Reseller Account
+        'Reseller Package' => [
+            'FriendlyName' => 'Reseller Package',
+            'Type' => 'text',
+            'Size' => '30',
+            'Loader' => 'openpanel_ResellerPlanLoader',
+            'SimpleMode' => true,
+            'Description' => 'For products of type Reseller Account: the OpenAdmin reseller package to create resellers on.',
+        ],
+        'Terminate Accounts' => [
+            'FriendlyName' => 'Delete reseller\'s accounts on terminate',
+            'Type' => 'yesno',
+            'SimpleMode' => true,
+            'Description' => 'For Reseller Account products: when ticked, Terminate also deletes every account the reseller owns. Otherwise they move to the OpenAdmin administrator.',
+        ],
     ];
+}
+
+function openpanel_ResellerPlanLoader(array $params)
+{
+    $list = ['' => '(none)'];
+    foreach (openpanelFetchResellerPlans(new ApiClient($params)) as $plan) {
+        $name = (string) ($plan['name'] ?? '');
+        if ($name !== '') {
+            $list[$name] = $name;
+        }
+    }
+
+    return $list;
 }
 
 function openpanel_PlanLoader(array $params)
@@ -119,6 +147,10 @@ function openpanel_TestConnection(array $params)
 */
 function openpanel_CreateAccount(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        return openpanelResellerCreate($params);
+    }
+
     $username = (string) ($params['username'] ?? '');
 
     // opencli user-add's own rule; checked here because its error text never reaches the API response
@@ -163,6 +195,10 @@ function openpanel_CreateAccount(array $params)
 */
 function openpanel_SuspendAccount(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        return openpanelResellerSetActive($params, false);
+    }
+
     try {
         $api = new ApiClient($params);
         $account = openpanelRequireUser($api, $params);
@@ -185,6 +221,10 @@ function openpanel_SuspendAccount(array $params)
 */
 function openpanel_UnsuspendAccount(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        return openpanelResellerSetActive($params, true);
+    }
+
     try {
         $api = new ApiClient($params);
         $account = openpanelRequireUser($api, $params);
@@ -207,6 +247,13 @@ function openpanel_UnsuspendAccount(array $params)
 */
 function openpanel_TerminateAccount(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        return openpanelResellerAction($params, [
+            'action' => 'delete',
+            'with_users' => openpanelYes($params['configoption3'] ?? ''),
+        ], 'Could not delete the OpenAdmin reseller: ', 1800);
+    }
+
     try {
         $api = new ApiClient($params);
         openpanelRequireUser($api, $params);
@@ -223,6 +270,13 @@ function openpanel_TerminateAccount(array $params)
 */
 function openpanel_ChangePassword(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        return openpanelResellerAction($params, [
+            'action' => 'reset_password',
+            'new_password' => (string) ($params['password'] ?? ''),
+        ], 'Could not change the OpenAdmin password: ');
+    }
+
     try {
         $api = new ApiClient($params);
         openpanelAssertSuccess($api->call('PATCH', openpanelUserUri($params), ['password' => (string) ($params['password'] ?? '')], 120));
@@ -237,6 +291,15 @@ function openpanel_ChangePassword(array $params)
 */
 function openpanel_ChangePackage(array $params)
 {
+    if (openpanelIsReseller($params)) {
+        try {
+            $plan = openpanelResellerPlanName($params);
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return openpanelResellerAction($params, ['action' => 'change_plan', 'plan' => $plan], 'Could not change the reseller package: ');
+    }
+
     try {
         $api = new ApiClient($params);
         openpanelAssertSuccess($api->call('PUT', openpanelUserUri($params), ['plan_name' => openpanelPlanName($params, $api)], 300));
@@ -254,24 +317,29 @@ function openpanel_ChangePackage(array $params)
 function openpanel_UsageUpdate(array $params)
 {
     try {
-        $usage = (new ApiClient($params))->call('GET', '/api/usage/disk', null, 300);
+        $api = new ApiClient($params);
+        $usage = $api->call('GET', '/api/usage/disk', null, 300);
     } catch (Throwable $e) {
         return 'Could not fetch usage from OpenPanel: ' . $e->getMessage();
     }
 
     foreach ($usage as $username => $values) {
-        if (!is_array($values)) {
-            continue;
+        if (is_array($values)) {
+            openpanelStoreUsage($params, (string) $username, false, $values['diskusage'] ?? 0, $values['disklimit'] ?? 0);
         }
+    }
 
-        Capsule::table('tblhosting')
-            ->where('server', (int) $params['serverid'])
-            ->where('username', (string) $username)
-            ->update([
-                'diskusage' => openpanelKbToMb($values['diskusage'] ?? 0),
-                'disklimit' => openpanelKbToMb($values['disklimit'] ?? 0),
-                'lastupdate' => Capsule::raw('NOW()'),
-            ]);
+    // only when this server has reseller products, and the reseller list is admin only
+    if (openpanelServiceQuery($params, true)->exists()) {
+        try {
+            foreach ($api->call('GET', '/api/settings/resellers', null, 120) as $reseller) {
+                if (is_array($reseller) && isset($reseller['username'])) {
+                    openpanelStoreUsage($params, (string) $reseller['username'], true, $reseller['current_disk_blocks'] ?? 0, $reseller['max_disk_blocks'] ?? 0);
+                }
+            }
+        } catch (Throwable $e) {
+            return 'Could not fetch reseller usage from OpenAdmin: ' . $e->getMessage();
+        }
     }
 
     return 'success';
@@ -288,6 +356,15 @@ function openpanel_UsageUpdate(array $params)
 function openpanel_ServiceSingleSignOn(array $params)
 {
     try {
+        if (openpanelIsReseller($params)) {
+            $response = (new ApiClient($params))->call('POST', openpanelResellerUri($params) . '/login', null, 60);
+            if (!is_string($response['login_path'] ?? null) || $response['login_path'] === '') {
+                throw new ApiException('OpenAdmin did not return a login link.');
+            }
+
+            return ['success' => true, 'redirectTo' => ApiClient::baseUrl($params) . $response['login_path']];
+        }
+
         $response = (new ApiClient($params))->call('POST', openpanelUserUri($params) . '/autologin', null, 60);
         if (!is_string($response['link'] ?? null) || $response['link'] === '') {
             throw new ApiException('OpenAdmin did not return a login link.');
@@ -328,6 +405,7 @@ function openpanel_ClientArea(array $params)
         'templatefile' => 'templates/clientarea',
         'vars' => [
             'openpanelLoginUrl' => 'clientarea.php?action=productdetails&id=' . (int) $params['serviceid'] . '&dosinglesignon=1',
+            'openpanelLoginLabel' => openpanelIsReseller($params) ? 'Log in to OpenAdmin' : 'Log in to OpenPanel',
         ],
     ];
 }
@@ -340,6 +418,20 @@ function openpanel_AdminServicesTabFields(array $params)
     $label = 'OpenPanel Account';
     if ((string) ($params['username'] ?? '') === '') {
         return [];
+    }
+
+    if (openpanelIsReseller($params)) {
+        $label = 'OpenAdmin Reseller';
+        try {
+            $reseller = openpanelFetchReseller(new ApiClient($params), (string) $params['username'], 15);
+        } catch (Throwable $e) {
+            return [$label => '<span class="label label-danger">' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</span>'];
+        }
+        if ($reseller === null) {
+            return [$label => '<span class="label label-warning">Reseller does not exist on this OpenAdmin server</span>'];
+        }
+
+        return [$label => openpanelRenderView(__DIR__ . '/templates/admin_services_tab_reseller.php', openpanelResellerView($reseller))];
     }
 
     try {
@@ -595,4 +687,185 @@ function openpanelRenderView(string $file, array $vars): string
 }
 
 # END Helpers
+# ======================================================================
+# START Reseller accounts (products of type Reseller Account)
+
+function openpanelIsReseller(array $params): bool
+{
+    return ($params['producttype'] ?? '') === 'reselleraccount';
+}
+
+function openpanelYes($value): bool
+{
+    return in_array(strtolower(trim((string) $value)), ['on', 'yes', '1', 'true'], true);
+}
+
+function openpanelResellerUri(array $params): string
+{
+    $username = (string) ($params['username'] ?? '');
+    if ($username === '') {
+        throw new ApiException('This service has no username.');
+    }
+
+    return '/api/settings/resellers/' . rawurlencode($username);
+}
+
+function openpanelResellerCreate(array $params): string
+{
+    $username = (string) ($params['username'] ?? '');
+    $password = (string) ($params['password'] ?? '');
+
+    // opencli admin new's rules, its error text is less clear than these
+    if (!preg_match('/^[a-zA-Z0-9_]{5,30}$/', $username)) {
+        return 'OpenAdmin reseller usernames must be 5-30 characters and contain only letters, numbers and _. Change the service username and try again.';
+    }
+    if (!preg_match('/^\S{6,30}$/', $password)) {
+        return 'OpenAdmin passwords must be 6-30 characters without spaces. Change the service password and try again.';
+    }
+
+    try {
+        $plan = openpanelResellerPlanName($params);
+    } catch (Throwable $e) {
+        return $e->getMessage();
+    }
+
+    return openpanelResellerAction($params, [
+        'action' => 'create',
+        'username' => $username,
+        'password' => $password,
+        'plan' => $plan,
+    ], 'Could not create the OpenAdmin reseller: ', 300);
+}
+
+/*
+    Suspend and unsuspend are skipped when the reseller is already in that
+    state, so an unsuspend can't wake accounts the reseller suspended.
+*/
+function openpanelResellerSetActive(array $params, bool $active): string
+{
+    $verb = $active ? 'unsuspend' : 'suspend';
+    try {
+        $api = new ApiClient($params);
+        $reseller = openpanelFetchReseller($api, (string) ($params['username'] ?? ''));
+        if ($reseller === null) {
+            throw new ApiException('Reseller ' . ($params['username'] ?? '') . ' does not exist on this OpenAdmin server.');
+        }
+        if ((bool) ($reseller['is_active'] ?? true) === $active) {
+            return 'success';
+        }
+    } catch (Throwable $e) {
+        return 'Could not ' . $verb . ' the OpenAdmin reseller: ' . $e->getMessage();
+    }
+
+    return openpanelResellerAction($params, ['action' => $verb], 'Could not ' . $verb . ' the OpenAdmin reseller: ', 1800);
+}
+
+/*
+    POST /api/settings/resellers, which answers {"success": true, "message"}
+    or a 4xx with the opencli error.
+*/
+function openpanelResellerAction(array $params, array $body, string $errorPrefix, int $timeout = 300): string
+{
+    try {
+        $body += ['username' => (string) ($params['username'] ?? '')];
+        if ($body['username'] === '') {
+            throw new ApiException('This service has no username.');
+        }
+        openpanelAssertSuccess((new ApiClient($params))->call('POST', '/api/settings/resellers', $body, $timeout));
+        return 'success';
+    } catch (Throwable $e) {
+        return $errorPrefix . $e->getMessage();
+    }
+}
+
+function openpanelFetchReseller(ApiClient $api, string $username, int $timeout = 60): ?array
+{
+    try {
+        return $api->call('GET', openpanelResellerUri(['username' => $username]), null, $timeout);
+    } catch (ApiException $e) {
+        if ($e->getCode() === 404) {
+            return null;
+        }
+        throw $e;
+    }
+}
+
+function openpanelFetchResellerPlans(ApiClient $api): array
+{
+    $plans = $api->call('GET', '/api/plans/resellers', null, 30);
+    if (!array_is_list($plans)) {
+        throw new ApiException('OpenAdmin returned an unexpected reseller package list.');
+    }
+
+    return $plans;
+}
+
+function openpanelResellerPlanName(array $params): string
+{
+    $plan = trim((string) ($params['configoption2'] ?? ''));
+    if ($plan === '') {
+        throw new ApiException('No OpenAdmin reseller package is set for this product (Module Settings > Reseller Package).');
+    }
+
+    return $plan;
+}
+
+/*
+    Services on this server, only reseller ones or only the others, so a
+    reseller and an OpenPanel user with the same name don't overwrite each
+    other's usage.
+*/
+function openpanelServiceQuery(array $params, bool $resellers)
+{
+    return Capsule::table('tblhosting')
+        ->join('tblproducts', 'tblproducts.id', '=', 'tblhosting.packageid')
+        ->where('tblhosting.server', (int) $params['serverid'])
+        ->where('tblproducts.type', $resellers ? '=' : '!=', 'reselleraccount');
+}
+
+function openpanelStoreUsage(array $params, string $username, bool $reseller, $usedKb, $limitKb): void
+{
+    openpanelServiceQuery($params, $reseller)
+        ->where('tblhosting.username', $username)
+        ->update([
+            'tblhosting.diskusage' => openpanelKbToMb($usedKb),
+            'tblhosting.disklimit' => openpanelKbToMb($limitKb),
+            'tblhosting.lastupdate' => Capsule::raw('NOW()'),
+        ]);
+}
+
+/*
+    GET /api/settings/resellers/{username} as display strings for
+    templates/admin_services_tab_reseller.php.
+*/
+function openpanelResellerView(array $reseller): array
+{
+    $usage = [];
+    foreach ([['Accounts', 'current_accounts', 'max_accounts', false], ['Disk', 'current_disk_blocks', 'max_disk_blocks', true]] as [$name, $usedKey, $maxKey, $isKb]) {
+        $used = (float) ($reseller[$usedKey] ?? 0);
+        $max = (float) ($reseller[$maxKey] ?? 0);
+        $usage[] = [
+            'label' => $name,
+            'used' => $isKb ? openpanelHumanKb($used) : number_format($used),
+            'limit' => $max > 0 ? ($isKb ? openpanelHumanKb($max) : number_format($max)) : 'Unlimited',
+            'percent' => $max > 0 ? min(100, round($used / $max * 100, 1)) : null,
+        ];
+    }
+
+    $plans = is_array($reseller['allowed_plans'] ?? null) ? $reseller['allowed_plans'] : [];
+
+    return [
+        'usage' => $usage,
+        'account' => [
+            'Status' => !empty($reseller['is_active']) ? 'Active' : 'Suspended',
+            'Reseller package' => openpanelDisplay($reseller['reseller_plan'] ?? null),
+            'Allowed user plans' => $plans ? implode(', ', array_map('strval', $plans)) : 'None',
+            '2FA enabled' => !empty($reseller['totp_enabled']) ? 'Yes' : 'No',
+            'Last login' => openpanelDisplay($reseller['last_login'] ?? null),
+            'Last IP' => openpanelDisplay($reseller['last_ip'] ?? null),
+        ],
+    ];
+}
+
+# END Reseller accounts
 # ======================================================================

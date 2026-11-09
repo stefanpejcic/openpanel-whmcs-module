@@ -267,7 +267,7 @@ class ApiClient
      */
     private function secrets(?array $data, ?string $token, $body): array
     {
-        $secrets = [$this->password, $token, $data['password'] ?? null];
+        $secrets = [$this->password, $token, $data['password'] ?? null, $data['new_password'] ?? null];
 
         $response = is_string($body) ? json_decode($body, true) : null;
         if (is_array($response)) {
